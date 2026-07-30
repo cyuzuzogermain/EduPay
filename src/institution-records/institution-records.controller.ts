@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -9,9 +10,19 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ActorRole } from '@prisma/client';
 import { InstitutionRecordsService } from './institution-records.service';
 import { CreateRecordDto } from './dto/create-record.dto';
@@ -22,6 +33,8 @@ import { RecordResponseDto } from './dto/record-response.dto';
 import { RecordDetailResponseDto } from './dto/record-detail-response.dto';
 import { ChargeDetailResponseDto } from './dto/charge-detail-response.dto';
 import { PaginatedRecordsResponseDto } from './dto/paginated-records-response.dto';
+import { ImportSummaryDto } from './dto/import-summary.dto';
+import { MAX_CSV_FILE_SIZE_BYTES } from './csv-import.constants';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -58,6 +71,38 @@ export class InstitutionRecordsController {
     @Body() dto: CreateRecordDto,
   ): Promise<RecordResponseDto> {
     return this.institutionRecordsService.create(user, dto);
+  }
+
+  @Post('import')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_CSV_FILE_SIZE_BYTES } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'CSV file, max 2MB' },
+      },
+    },
+  })
+  @ApiOperation({
+    summary:
+      'Bulk-create SchoolFinancialRecord rows (and their charges) from a CSV file, scoped to this institution',
+  })
+  @ApiResponse({ status: 201, type: ImportSummaryDto })
+  @ApiResponse({
+    status: 400,
+    description: 'Missing file, wrong file type/size, or malformed CSV (missing columns, etc.)',
+  })
+  async importCsv(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<ImportSummaryDto> {
+    if (!file) {
+      throw new BadRequestException('A CSV file is required');
+    }
+
+    return this.institutionRecordsService.importCsv(user, file);
   }
 
   @Get(':id')

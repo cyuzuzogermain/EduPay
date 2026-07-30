@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { parse } from 'csv-parse/sync';
 import { Prisma, SchoolTransactionStatus, SchoolTransactionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { FinanceService } from '../finance/finance.service';
@@ -17,6 +19,12 @@ import { RecordResponseDto, RecordSummaryResponseDto } from './dto/record-respon
 import { RecordDetailResponseDto } from './dto/record-detail-response.dto';
 import { ChargeDetailResponseDto } from './dto/charge-detail-response.dto';
 import { PaginatedRecordsResponseDto } from './dto/paginated-records-response.dto';
+import { ImportSkippedRowDto, ImportSummaryDto } from './dto/import-summary.dto';
+import {
+  CSV_IMPORT_REQUIRED_COLUMNS,
+  MAX_CSV_FILE_SIZE_BYTES,
+  isCsvFile,
+} from './csv-import.constants';
 
 export interface ListRecordsQuery extends PaginationQueryDto {
   /** Case-insensitive contains match against schoolId or studentName. */
@@ -32,6 +40,30 @@ type RecordWithTransactions = Prisma.SchoolFinancialRecordGetPayload<{
 type TransactionWithAllocations = Prisma.SchoolTransactionGetPayload<{
   include: { chargeAllocations: { include: { payment: true } } };
 }>;
+
+export interface ImportedCsvFile {
+  buffer: Buffer;
+  size: number;
+  originalname: string;
+}
+
+interface CsvRow {
+  rowNumber: number;
+  schoolId: string;
+  studentName: string;
+  program: string;
+  chargeDescription: string;
+  chargeAmount: string;
+  chargeDueDate: string;
+}
+
+interface CsvRecordGroup {
+  schoolId: string;
+  studentName: string;
+  program: string | null;
+  rowNumbers: number[];
+  charges: { description: string; amount: number; dueDate: string }[];
+}
 
 @Injectable()
 export class InstitutionRecordsService {
@@ -145,6 +177,135 @@ export class InstitutionRecordsService {
     return this.toRecordResponse(record);
   }
 
+  /// Bulk-creates records (and their charges) from a CSV file, scoped to the requester's own
+  /// institution - never lets a row target another institution, since institutionId always comes
+  /// from `user`, never from the file. One row = one charge; rows sharing a schoolId are grouped
+  /// into a single record (see CSV_IMPORT_COLUMNS). Every row is validated independently first
+  /// (no DB write yet); only groups that are entirely valid at the schoolId/studentName level get
+  /// written, each in its own transaction (record + all its valid charges together), so a bad row
+  /// never blocks the rest of the file and a crash mid-import never leaves a record with only
+  /// some of its charges committed.
+  async importCsv(user: AuthenticatedUser, file: ImportedCsvFile): Promise<ImportSummaryDto> {
+    this.assertCsvFile(file);
+
+    const institutionId = user.institutionId as string;
+    const institution = await this.prisma.institution.findUniqueOrThrow({
+      where: { id: institutionId },
+    });
+
+    const rows = this.parseCsvRows(file.buffer);
+
+    const existingRecords = await this.prisma.schoolFinancialRecord.findMany({
+      where: { institutionId },
+      select: { schoolId: true },
+    });
+    const existingSchoolIds = new Set(existingRecords.map((r) => r.schoolId));
+
+    const skipped: ImportSkippedRowDto[] = [];
+    const groups = new Map<string, CsvRecordGroup>();
+
+    for (const row of rows) {
+      const schoolId = row.schoolId.trim();
+      const studentName = row.studentName.trim();
+      const description = row.chargeDescription.trim();
+      const dueDateRaw = row.chargeDueDate.trim();
+      const amountRaw = row.chargeAmount.trim();
+
+      if (!schoolId) {
+        skipped.push({ row: row.rowNumber, reason: 'Missing schoolId' });
+        continue;
+      }
+      if (studentName.length < 2) {
+        skipped.push({ row: row.rowNumber, reason: 'Missing or too-short studentName' });
+        continue;
+      }
+      if (existingSchoolIds.has(schoolId)) {
+        skipped.push({
+          row: row.rowNumber,
+          reason: `schoolId "${schoolId}" already exists at this institution`,
+        });
+        continue;
+      }
+      if (!description) {
+        skipped.push({ row: row.rowNumber, reason: 'Missing chargeDescription' });
+        continue;
+      }
+
+      const amount = Number(amountRaw);
+      if (!amountRaw || Number.isNaN(amount) || amount <= 0) {
+        skipped.push({ row: row.rowNumber, reason: `Invalid chargeAmount "${amountRaw}"` });
+        continue;
+      }
+      if (!dueDateRaw || Number.isNaN(Date.parse(dueDateRaw))) {
+        skipped.push({ row: row.rowNumber, reason: `Invalid chargeDueDate "${dueDateRaw}"` });
+        continue;
+      }
+
+      let group = groups.get(schoolId);
+      if (!group) {
+        group = {
+          schoolId,
+          studentName,
+          program: row.program.trim() || null,
+          rowNumbers: [],
+          charges: [],
+        };
+        groups.set(schoolId, group);
+      }
+      group.rowNumbers.push(row.rowNumber);
+      group.charges.push({ description, amount, dueDate: dueDateRaw });
+    }
+
+    let recordsCreated = 0;
+    let chargesCreated = 0;
+
+    for (const group of groups.values()) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          const record = await tx.schoolFinancialRecord.create({
+            data: {
+              institutionId,
+              schoolId: group.schoolId,
+              studentName: group.studentName,
+              program: group.program,
+              currency: institution.preferredCurrency,
+            },
+          });
+
+          await tx.schoolTransaction.createMany({
+            data: group.charges.map((charge) => ({
+              recordId: record.id,
+              type: SchoolTransactionType.CHARGE,
+              status: SchoolTransactionStatus.PENDING,
+              description: charge.description,
+              amount: charge.amount,
+              currency: institution.preferredCurrency,
+              dueDate: new Date(charge.dueDate),
+              occurredAt: new Date(),
+            })),
+          });
+        });
+
+        recordsCreated += 1;
+        chargesCreated += group.charges.length;
+      } catch (error) {
+        const reason = this.isUniqueConstraintViolation(error, 'schoolId')
+          ? `schoolId "${group.schoolId}" was claimed by another request during import`
+          : 'Unexpected error while saving this record - it was not created';
+
+        for (const rowNumber of group.rowNumbers) {
+          skipped.push({ row: rowNumber, reason });
+        }
+      }
+    }
+
+    return {
+      recordsCreated,
+      chargesCreated,
+      skipped: skipped.sort((a, b) => a.row - b.row),
+    };
+  }
+
   async getDetail(id: string, user: AuthenticatedUser): Promise<RecordDetailResponseDto> {
     const record = await this.getOwnedRecord(id, user);
 
@@ -226,6 +387,68 @@ export class InstitutionRecordsService {
         'A financial record with this school ID already exists for your institution',
       );
     }
+  }
+
+  private assertCsvFile(file: ImportedCsvFile): void {
+    if (!isCsvFile(file)) {
+      throw new BadRequestException('Only .csv files are accepted');
+    }
+
+    if (file.size > MAX_CSV_FILE_SIZE_BYTES) {
+      throw new BadRequestException(
+        `CSV file must be ${MAX_CSV_FILE_SIZE_BYTES / (1024 * 1024)}MB or smaller`,
+      );
+    }
+  }
+
+  private parseCsvRows(buffer: Buffer): CsvRow[] {
+    let records: Record<string, string>[];
+
+    try {
+      records = parse(buffer, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+        bom: true,
+      });
+    } catch (error) {
+      throw new BadRequestException(`Could not parse CSV file: ${(error as Error).message}`);
+    }
+
+    if (records.length === 0) {
+      throw new BadRequestException('CSV file has no data rows');
+    }
+
+    const headerColumns = Object.keys(records[0]);
+    const missingColumns = CSV_IMPORT_REQUIRED_COLUMNS.filter(
+      (column) => !headerColumns.includes(column),
+    );
+
+    if (missingColumns.length > 0) {
+      throw new BadRequestException(
+        `CSV is missing required column(s): ${missingColumns.join(', ')}`,
+      );
+    }
+
+    return records.map((record, index) => ({
+      // +1 to move from a 0-based array index to a 1-based row, +1 more because row 1 is the
+      // header - so the first data row (index 0) is row 2, matching what a spreadsheet shows.
+      rowNumber: index + 2,
+      schoolId: record.schoolId ?? '',
+      studentName: record.studentName ?? '',
+      program: record.program ?? '',
+      chargeDescription: record.chargeDescription ?? '',
+      chargeAmount: record.chargeAmount ?? '',
+      chargeDueDate: record.chargeDueDate ?? '',
+    }));
+  }
+
+  private isUniqueConstraintViolation(error: unknown, field: string): boolean {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+      return false;
+    }
+    const target = (error.meta as { target?: string[] } | undefined)?.target;
+    return Array.isArray(target) && target.includes(field);
   }
 
   private async getOwnedRecord(id: string, user: AuthenticatedUser): Promise<PlainRecord> {

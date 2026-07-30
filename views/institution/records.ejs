@@ -20,6 +20,10 @@
           <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-muted group-focus-within:text-primary transition-colors">search</span>
           <input class="w-full pl-10 pr-4 py-2.5 bg-white border border-outline-variant rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md" name="search" placeholder="Search School ID or Name..." type="search" value="<%= search %>" />
         </form>
+        <a class="flex items-center justify-center gap-2 px-6 py-2.5 bg-white border border-outline-variant text-primary rounded-lg font-label-md text-label-md hover:bg-surface-container transition-all w-full sm:w-auto" href="#csv-import">
+          <span class="material-symbols-outlined text-[18px]">upload_file</span>
+          Bulk Import
+        </a>
         <a class="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container active:scale-95 transition-all w-full sm:w-auto" href="#create-record">
           <span class="material-symbols-outlined text-[18px]">add_circle</span>
           Create New Record
@@ -134,6 +138,24 @@
           </form>
         </div>
 
+        <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-6" id="csv-import">
+          <h3 class="font-headline-md text-headline-md text-primary mb-2">Bulk import (CSV)</h3>
+          <p class="font-body-sm text-body-sm text-slate-muted mb-4">
+            One row per charge - rows sharing the same School ID are grouped into a single record.
+            Required columns: <span class="font-mono-data text-[11px] bg-surface-container-low px-1 py-0.5 rounded">schoolId, studentName, chargeDescription, chargeAmount, chargeDueDate</span>
+            (<span class="font-mono-data text-[11px] bg-surface-container-low px-1 py-0.5 rounded">program</span> is optional). Amounts are plain numbers, dates are <span class="font-mono-data text-[11px]">YYYY-MM-DD</span>.
+            <a class="text-primary hover:underline font-semibold" download href="/samples/school-financial-records-sample.csv">Download a sample CSV</a>.
+          </p>
+          <form id="csv-import-form">
+            <input accept=".csv,text/csv" class="w-full text-body-sm font-body-sm file:mr-3 file:px-4 file:py-2 file:rounded-lg file:border-0 file:bg-primary file:text-white file:font-label-md file:text-label-md file:cursor-pointer mb-4" id="csvFile" name="file" required type="file" />
+            <button class="w-full px-6 py-2.5 bg-white border border-outline-variant text-primary rounded-lg font-label-md text-label-md hover:bg-surface-container transition-all flex items-center justify-center gap-2" id="csv-import-btn" type="submit">
+              <span class="material-symbols-outlined text-[18px]">upload_file</span>
+              Upload CSV
+            </button>
+          </form>
+          <div class="hidden mt-4" id="csv-import-result"></div>
+        </div>
+
         <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-6">
           <h3 class="font-headline-md text-headline-md text-primary mb-2">Preferred currency</h3>
           <p class="font-body-sm text-body-sm text-slate-muted mb-4">
@@ -154,5 +176,83 @@
   </main>
 
   <%- include('../partials/footer') %>
+
+  <script>
+    (function () {
+      var form = document.getElementById('csv-import-form');
+      if (!form) return;
+
+      var fileInput = document.getElementById('csvFile');
+      var submitBtn = document.getElementById('csv-import-btn');
+      var resultBox = document.getElementById('csv-import-result');
+
+      function escapeHtml(value) {
+        var div = document.createElement('div');
+        div.textContent = value;
+        return div.innerHTML;
+      }
+
+      function renderSummary(summary) {
+        var html =
+          '<div class="p-4 rounded-lg bg-status-completed/10 text-status-completed font-body-sm text-body-sm">' +
+          summary.recordsCreated + ' record(s) and ' + summary.chargesCreated + ' charge(s) created.</div>';
+
+        if (summary.skipped.length > 0) {
+          html +=
+            '<div class="mt-3 p-4 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">' +
+            '<p class="font-semibold mb-2">' + summary.skipped.length + ' row(s) skipped:</p>' +
+            '<ul class="space-y-1 list-disc list-inside">' +
+            summary.skipped
+              .map(function (s) {
+                return '<li>Row ' + s.row + ': ' + escapeHtml(s.reason) + '</li>';
+              })
+              .join('') +
+            '</ul></div>';
+        }
+
+        resultBox.innerHTML = html;
+        resultBox.className = 'mt-4';
+      }
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        if (!fileInput.files.length) return;
+
+        var formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Uploading…';
+        resultBox.className = 'hidden';
+
+        fetch('/school-financial-records/import', {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: formData,
+        })
+          .then(function (res) {
+            return res.json().then(function (data) {
+              if (!res.ok) {
+                throw new Error(Array.isArray(data.message) ? data.message.join(' ') : (data.message || 'Import failed.'));
+              }
+              return data;
+            });
+          })
+          .then(function (summary) {
+            renderSummary(summary);
+            form.reset();
+          })
+          .catch(function (err) {
+            resultBox.className = 'mt-4 p-4 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm';
+            resultBox.textContent = err.message;
+          })
+          .finally(function () {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">upload_file</span> Upload CSV';
+          });
+      });
+    })();
+  </script>
 </body>
 </html>

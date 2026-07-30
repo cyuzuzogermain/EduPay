@@ -1,0 +1,4 @@
+schoolId,studentName,program,chargeDescription,chargeAmount,chargeDueDate
+STU-2001,Aline Uwase,Computer Science Year 1,Tuition,450000,2026-09-01
+STU-2001,Aline Uwase,Computer Science Year 1,Library Fee,15000,2026-09-15
+STU-2002,Eric Niyonzima,Business Administration Year 2,Tuition,500000,2026-09-01
