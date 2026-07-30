@@ -29,3 +29,6 @@ coverage/
 
 # prisma
 prisma/*.db
+
+#others
+FLOW.md

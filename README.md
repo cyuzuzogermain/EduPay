@@ -190,25 +190,3 @@ All responses exclude `password`. Errors follow a consistent shape:
   "error": "Bad Request"
 }
 ```
-
-## Environment variables
-
-See `.env.example` for the full list with descriptions: app port, `DATABASE_URL`, JWT
-secrets/expiry, SendGrid credentials, and MTN MoMo sandbox credentials.
-
-## Linting & pre-commit
-
-```bash
-npm run lint        # auto-fix
-npm run lint:check  # CI-style check
-```
-
-A Husky `pre-commit` hook runs `lint:check` automatically on every commit.
-
-## Next sprint: MTN MoMo integration
-
-What's needed to implement the MoMo adapter: Collections API credentials (already scaffolded in
-`.env.example`), a `MtnMomoAdapter` implementing `PaymentPartner`, webhook handling for async
-payment confirmation, and a `PaymentTransaction` Prisma model to persist orchestration state. If
-payment status polling needs to run on a schedule at that point, a lightweight job runner (or
-reintroducing a queue) can be layered in then - not needed for this MVP.
