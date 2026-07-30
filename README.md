@@ -18,6 +18,9 @@ Three actor types, each with their own login and their own area of the app:
   approve/reject KYC submissions for that institution's students.
 - **Platform admins** - EduPay staff; provision institutions and institution admin accounts, and
   can view/review across every institution.
+  NOTE: For setup in the already in production app, purposes only, use:
+  Platform Admin Email: admin@edupay.com
+  Platform Admin Password: PlatformAdmin123!
 
 ## Tech stack
 
@@ -91,14 +94,17 @@ npm run test:e2e  # end-to-end tests (requires Postgres running)
 
 ## Demo walkthrough
 
-1. Log in as the seeded platform admin (`/login`) → **Institutions** → create an institution.
+1. Log in as the seeded platform admin (`/login`) → **Institutions** → create an institution. (Use the above credentials if you are running directly from production)
 2. On that institution's page, provision an institution admin account.
-3. Log out, register a new student account (`/register`), optionally linking it to that
-   institution.
-4. As the student: go to **KYC**, submit a document.
-5. Log out, log back in as the institution admin you created → **Students** → open the student →
+3. Log in as institution admin → **Records** create a record or import xls/csv
+4. Log out, register a new student account (`/register`). Make sure the student names and student
+   ID match the data provided by the institution in the records created.
+5. As the student: go to **KYC**, submit a document.
+6. Log out, log back in as the institution admin you created → **Students** → open the student →
    **Approve** or **Reject** the submitted document.
-6. Log back in as the student to see the updated KYC status.
+7. Log back in as the student to see the updated KYC status.
+8. If approved as a student, you can initiate a payment.
+9. Log out, log back in as an institution admin → **Payments** view pending and approve or reject
 
 ## Project structure
 
