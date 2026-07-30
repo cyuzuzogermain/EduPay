@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notifications - EduPay</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('../partials/nav', { user }) %>
+
+  <main class="flex-grow max-w-2xl mx-auto px-gutter py-8 w-full">
+    <div class="mb-6">
+      <h1 class="font-headline-lg text-headline-lg text-primary mb-1">Notifications</h1>
+      <p class="font-body-md text-body-md text-slate-muted">You're notified here whenever one of your payments is approved or rejected.</p>
+    </div>
+
+    <div class="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+      <% if (notifications.length === 0) { %>
+        <p class="p-8 text-center font-body-md text-body-md text-slate-muted">Nothing yet - notifications appear here once a payment you've made is reviewed.</p>
+      <% } else { %>
+        <div class="divide-y divide-outline-variant">
+          <% notifications.forEach(function (n) { %>
+            <div class="px-6 py-4 flex items-start gap-4 <%= !n.read ? 'bg-primary/5' : '' %>">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center flex-none <%= n.type === 'PAYMENT_APPROVED' ? 'bg-status-completed/10 text-status-completed' : 'bg-status-rejected/10 text-status-rejected' %>">
+                <span class="material-symbols-outlined"><%= n.type === 'PAYMENT_APPROVED' ? 'check_circle' : 'error' %></span>
+              </div>
+              <div class="flex-grow min-w-0">
+                <p class="font-body-md text-body-md text-on-surface font-semibold"><%= n.message %></p>
+                <p class="font-body-sm text-body-sm text-slate-muted mt-0.5"><%= new Date(n.createdAt).toLocaleString() %></p>
+              </div>
+              <% if (n.type === 'PAYMENT_APPROVED' && n.paymentId) { %>
+                <a class="px-3 py-1.5 rounded-lg bg-white border border-outline-variant text-primary font-label-md text-[11px] hover:bg-surface-container transition-colors flex-none" href="/payments/<%= n.paymentId %>/receipt">Receipt</a>
+              <% } %>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

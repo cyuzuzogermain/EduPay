@@ -1,0 +1,52 @@
+<header class="sticky top-0 z-50 flex justify-between items-center w-full px-gutter py-4 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
+  <div class="flex items-center gap-8">
+    <a class="text-headline-md font-headline-lg font-bold text-primary no-underline" href="<% if (user) { %><%= user.role === 'STUDENT' ? '/dashboard' : (user.role === 'INSTITUTION_ADMIN' ? '/institution/records' : '/admin') %><% } else { %>/<% } %>">EduPay</a>
+    <nav class="hidden md:flex items-center gap-6">
+      <% if (!user) { %>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/">Home</a>
+      <% } else if (user.role === 'STUDENT') { %>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/dashboard">Dashboard</a>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/payments">Payments</a>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/kyc">KYC</a>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1 inline-flex items-center gap-1.5" href="/notifications">
+          Notifications
+          <% if (typeof unreadCount !== 'undefined' && unreadCount > 0) { %>
+            <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-status-rejected text-white font-label-md text-[10px] leading-none"><%= unreadCount > 9 ? '9+' : unreadCount %></span>
+          <% } %>
+        </a>
+      <% } else if (user.role === 'INSTITUTION_ADMIN') { %>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/institution/records">Records</a>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/institution/students">Students</a>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/institution/payments">Payments</a>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/institution/reports">Reports</a>
+      <% } else if (user.role === 'PLATFORM_ADMIN') { %>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/admin">Overview</a>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/admin/institutions">Institutions</a>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/admin/students">Students</a>
+        <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors pb-1" href="/admin/payments">Payments</a>
+      <% } %>
+    </nav>
+  </div>
+  <div class="flex items-center gap-4">
+    <% if (!user) { %>
+      <a class="font-body-md text-body-md text-slate-muted hover:text-primary transition-colors" href="/login">Log in</a>
+      <a class="px-4 py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all" href="/register">Get started</a>
+    <% } else { %>
+      <button class="p-2 rounded-full hover:bg-surface-container transition-colors" type="button">
+        <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+      </button>
+      <div class="flex items-center gap-3 pl-3 border-l border-outline-variant">
+        <div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center">
+          <span class="material-symbols-outlined text-white text-[20px]">account_circle</span>
+        </div>
+        <div class="hidden lg:flex flex-col leading-tight">
+          <span class="font-label-md text-label-md text-primary"><%= user.email %></span>
+          <span class="font-body-sm text-[11px] text-slate-muted"><%= user.role === 'STUDENT' ? 'Student' : (user.role === 'INSTITUTION_ADMIN' ? 'Institution admin' : 'Platform admin') %></span>
+        </div>
+        <form method="POST" action="/logout">
+          <button class="font-label-md text-label-md text-slate-muted hover:text-status-rejected transition-colors" type="submit">Log out</button>
+        </form>
+      </div>
+    <% } %>
+  </div>
+</header>

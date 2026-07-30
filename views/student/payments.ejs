@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduPay | Student Payments</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="font-body-md text-on-surface min-h-screen flex flex-col">
+  <%- include('../partials/nav', { user, unreadCount }) %>
+
+  <main class="flex-grow px-gutter py-margin-desktop max-w-container-max mx-auto w-full">
+    <% if (!student.institutionId || !student.schoolId) { %>
+      <h1 class="font-headline-lg text-headline-lg text-primary mb-6">Payments</h1>
+      <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-8">
+        <h2 class="font-headline-md text-headline-md text-primary mb-2">Link your institution and school ID first</h2>
+        <p class="font-body-md text-body-md text-slate-muted mb-6">
+          EduPay matches your tuition balance using your institution and school ID together.
+          <% if (!student.institutionId && !student.schoolId) { %>
+            You haven't set either yet.
+          <% } else if (!student.institutionId) { %>
+            You've set a school ID but haven't linked an institution yet.
+          <% } else { %>
+            You've linked an institution but haven't set your school ID yet.
+          <% } %>
+        </p>
+        <a class="inline-block px-6 py-2.5 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container active:scale-95 transition-all" href="/dashboard">Go to your profile</a>
+      </div>
+    <% } else if (!balance) { %>
+      <h1 class="font-headline-lg text-headline-lg text-primary mb-6">Payments</h1>
+      <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-8">
+        <h2 class="font-headline-md text-headline-md text-primary mb-2">No record found</h2>
+        <p class="font-body-md text-body-md text-slate-muted">
+          EduPay couldn't find a financial record for school ID <strong class="text-on-surface"><%= student.schoolId %></strong>
+          at your institution. Double-check the school ID on your
+          <a class="text-primary hover:underline" href="/dashboard">profile</a>, or check back later - your institution may not have
+          uploaded your records yet.
+        </p>
+      </div>
+    <% } else {
+      var payableTotal = charges
+        .filter(function (c) { return c.state === 'OPEN' || c.state === 'OVERDUE'; })
+        .reduce(function (sum, c) { return sum + c.amount; }, 0);
+      var hasOverdue = charges.some(function (c) { return c.state === 'OVERDUE'; });
+    %>
+      <!-- Header Section -->
+      <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <nav class="flex items-center gap-2 text-body-sm font-label-md text-slate-muted mb-2">
+            <span>Institutions</span>
+            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+            <span class="text-primary"><%= institutionName || 'Your institution' %></span>
+          </nav>
+          <h1 class="font-headline-lg text-headline-lg text-primary">Student Payment Portal</h1>
+          <p class="text-slate-muted font-body-md mt-1">Viewing records for <span class="font-semibold text-on-surface"><%= balance.studentName %></span> (<%= balance.schoolId %>)</p>
+        </div>
+      </div>
+
+      <div id="page-alert" class="hidden mb-6"></div>
+
+      <% if (!kycApproved) { %>
+        <div class="mb-6 bg-white border border-outline-variant rounded-xl shadow-sm p-6 flex items-start gap-4">
+          <span class="material-symbols-outlined text-status-overdue text-[28px]">warning</span>
+          <div class="flex-grow">
+            <h2 class="font-headline-md text-headline-md text-primary mb-1">Verify your identity before paying</h2>
+            <p class="font-body-md text-body-md text-slate-muted mb-4">
+              Your KYC status must be Approved before you can initiate a payment. Submit your
+              documents (or check on a pending review) on the KYC page.
+            </p>
+            <a class="inline-block px-5 py-2 bg-primary text-white rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all" href="/kyc">Go to KYC</a>
+          </div>
+        </div>
+      <% } %>
+
+      <div class="bento-grid">
+        <!-- Summary Stats: Total Outstanding -->
+        <div class="col-span-12 md:col-span-4 bg-white p-6 rounded-xl shadow-sm border border-surface-container-highest flex flex-col justify-between h-full">
+          <div>
+            <span class="font-label-md text-label-md text-slate-muted uppercase tracking-wider">Total Outstanding</span>
+            <h2 class="font-display-stat text-display-stat text-primary mt-2"><%= payableTotal.toLocaleString() %> <span class="text-headline-md font-normal opacity-60"><%= balance.currency %></span></h2>
+          </div>
+          <% if (hasOverdue) { %>
+            <div class="mt-6 flex items-center gap-2 text-status-overdue bg-status-overdue/10 px-3 py-1.5 rounded-lg w-fit">
+              <span class="material-symbols-outlined text-[18px]">warning</span>
+              <span class="font-label-md text-label-md">Past Due Notice</span>
+            </div>
+          <% } %>
+        </div>
+
+        <!-- Pending Charges List -->
+        <div class="col-span-12 md:col-span-8 bg-white rounded-xl shadow-sm border border-surface-container-highest overflow-hidden flex flex-col">
+          <div class="p-6 border-b border-surface-container-highest bg-surface-container-lowest">
+            <h3 class="font-headline-md text-headline-md text-primary">Pending Charges</h3>
+          </div>
+          <% if (charges.length === 0) { %>
+            <p class="p-6 font-body-md text-body-md text-slate-muted">Nothing outstanding right now.</p>
+          <% } else { %>
+            <form id="payment-form">
+              <div class="divide-y divide-surface-container-highest">
+                <% charges.forEach(function (charge) { %>
+                  <label class="p-4 flex items-center gap-4 hover:bg-surface-container-low transition-colors group has-[:checked]:bg-primary/5 <%= !charge.selectable ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer' %>">
+                    <input
+                      class="charge-item w-5 h-5 rounded-full border-outline-variant text-primary focus:ring-primary"
+                      name="chargeId"
+                      type="radio"
+                      value="<%= charge.id %>"
+                      <%= !charge.selectable ? 'disabled' : '' %>
+                    />
+                    <div class="flex-grow min-w-0">
+                      <p class="font-label-md text-on-surface"><%= charge.description %></p>
+                      <% if (charge.dueDate) { %>
+                        <p class="font-body-sm text-body-sm text-slate-muted">Due <%= new Date(charge.dueDate).toLocaleDateString() %></p>
+                      <% } %>
+                    </div>
+                    <div class="flex items-center gap-6">
+                      <% if (charge.state === 'OVERDUE') { %>
+                        <%- include('../partials/badge', { status: 'OVERDUE' }) %>
+                      <% } else if (charge.state === 'PAYMENT_PENDING') { %>
+                        <%- include('../partials/badge', { status: 'PAYMENT_PENDING', label: 'Payment pending' }) %>
+                      <% } else { %>
+                        <%- include('../partials/badge', { status: 'OPEN' }) %>
+                      <% } %>
+                      <span class="font-mono-data text-mono-data font-semibold text-on-surface min-w-[100px] text-right"><%= charge.currency %> <%= charge.amount.toLocaleString() %></span>
+                    </div>
+                  </label>
+                <% }) %>
+
+                <% if (payableTotal > 0) { %>
+                  <label class="p-4 flex items-center gap-4 hover:bg-surface-container-low transition-colors cursor-pointer has-[:checked]:bg-primary/5">
+                    <input class="charge-item w-5 h-5 rounded-full border-outline-variant text-primary focus:ring-primary" name="chargeId" type="radio" value="" />
+                    <div class="flex-grow min-w-0">
+                      <p class="font-label-md text-on-surface">Pay full outstanding balance</p>
+                      <p class="font-body-sm text-body-sm text-slate-muted">Covers every payable charge above, including overdue ones</p>
+                    </div>
+                    <span class="font-mono-data text-mono-data font-semibold text-on-surface min-w-[100px] text-right"><%= balance.currency %> <%= payableTotal.toLocaleString() %></span>
+                  </label>
+                <% } %>
+              </div>
+
+              <div class="p-6 bg-surface-container-low border-t border-surface-container-highest space-y-5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="sendCurrency">Pay in</label>
+                    <select class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface disabled:opacity-50" id="sendCurrency" name="sendCurrency" <%= !kycApproved ? 'disabled' : '' %>>
+                      <% sendCurrencies.forEach(function (c) { %>
+                        <option <%= c === balance.currency ? 'selected' : '' %> value="<%= c %>"><%= c %></option>
+                      <% }) %>
+                    </select>
+                    <p class="mt-1.5 font-body-sm text-body-sm text-slate-muted">EduPay converts it for you.</p>
+                  </div>
+                  <div>
+                    <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="phoneNumber">Phone number</label>
+                    <input
+                      class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface disabled:opacity-50"
+                      id="phoneNumber"
+                      name="phoneNumber"
+                      placeholder="e.g. +250788123456"
+                      type="tel"
+                      <%= !kycApproved ? 'disabled' : '' %>
+                    />
+                    <p class="mt-1.5 font-body-sm text-body-sm text-slate-muted">Used for the simulated MTN MoMo prompt.</p>
+                  </div>
+                </div>
+
+                <div class="hidden p-5 rounded-xl border border-outline-variant bg-white" id="quote-box">
+                  <h3 class="font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-3">Payment summary</h3>
+                  <dl class="space-y-2 font-body-sm text-body-sm">
+                    <div class="flex justify-between"><dt class="text-slate-muted">Amount owed</dt><dd class="font-mono-data text-mono-data" id="quote-charge-amount"></dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-muted">Exchange rate</dt><dd class="font-mono-data text-mono-data" id="quote-rate"></dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-muted">Converted amount</dt><dd class="font-mono-data text-mono-data" id="quote-converted"></dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-muted">EduPay fee (1.5%)</dt><dd class="font-mono-data text-mono-data" id="quote-fee"></dd></div>
+                    <div class="flex justify-between pt-2 border-t border-outline-variant"><dt class="font-semibold text-primary">Total to pay</dt><dd class="font-mono-data text-mono-data font-bold text-primary" id="quote-total"></dd></div>
+                  </dl>
+                </div>
+
+                <div class="flex justify-end">
+                  <button class="bg-primary text-on-primary px-8 py-3 rounded-lg font-headline-md text-headline-md flex items-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50" id="initiate-btn" type="submit" <%= !kycApproved ? 'disabled' : '' %>>
+                    Initiate Payment
+                    <span class="material-symbols-outlined">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          <% } %>
+        </div>
+
+        <!-- Transaction History Table Section -->
+        <div class="col-span-12 mt-4">
+          <h3 class="font-headline-md text-headline-md text-primary mb-4">Transaction History</h3>
+          <div class="bg-white rounded-xl shadow-sm border border-surface-container-highest overflow-hidden">
+            <% if (balance.transactions.length === 0) { %>
+              <p class="p-6 font-body-md text-body-md text-slate-muted">No transactions on file yet.</p>
+            <% } else { %>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[900px]">
+                  <thead>
+                    <tr class="bg-surface-container-low border-b border-surface-container-highest">
+                      <th class="px-6 py-4 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Date</th>
+                      <th class="px-6 py-4 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Type</th>
+                      <th class="px-6 py-4 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Description</th>
+                      <th class="px-6 py-4 font-label-md text-label-md text-slate-muted uppercase tracking-wider text-right">Amount</th>
+                      <th class="px-6 py-4 font-label-md text-label-md text-slate-muted uppercase tracking-wider text-center">Status</th>
+                      <th class="px-6 py-4 font-label-md text-label-md text-slate-muted uppercase tracking-wider text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-surface-container-highest">
+                    <% balance.transactions.forEach(function (tx) { %>
+                      <tr class="hover:bg-surface-container-low transition-colors">
+                        <td class="px-6 py-4 font-body-md text-on-surface"><%= new Date(tx.occurredAt).toLocaleDateString() %></td>
+                        <td class="px-6 py-4"><%- include('../partials/badge', { status: tx.type }) %></td>
+                        <td class="px-6 py-4 font-body-md text-on-surface font-semibold">
+                          <%= tx.description %>
+                          <% if (tx.reviewNote) { %>
+                            <div class="font-body-sm text-[11px] text-slate-muted font-normal mt-0.5">"<%= tx.reviewNote %>"</div>
+                          <% } %>
+                        </td>
+                        <td class="px-6 py-4 font-mono-data text-mono-data text-right font-semibold text-on-surface"><%= tx.currency %> <%= tx.amount.toLocaleString() %></td>
+                        <td class="px-6 py-4 text-center"><%- include('../partials/badge', { status: tx.status, label: tx.status.replace(/_/g, ' ') }) %></td>
+                        <td class="px-6 py-4 text-right">
+                          <% if (tx.type === 'PAYMENT' && tx.status === 'COMPLETED') { %>
+                            <a class="text-primary hover:underline font-label-md text-label-md inline-flex items-center gap-1" href="/payments/<%= tx.id %>/receipt">
+                              <span class="material-symbols-outlined text-[18px]">receipt_long</span>
+                              Receipt
+                            </a>
+                          <% } %>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Modal -->
+      <div class="fixed inset-0 bg-primary/30 backdrop-blur-sm hidden items-center justify-center z-[100] p-4" id="payment-modal">
+        <div class="bg-white rounded-xl p-8 max-w-sm w-full text-center shadow-2xl">
+          <div class="w-10 h-10 border-4 border-outline-variant border-t-primary rounded-full animate-spin mx-auto mb-5"></div>
+          <h2 class="font-headline-md text-headline-md text-primary mb-2">Approve the payment on your phone&hellip;</h2>
+          <p class="font-body-md text-body-md text-on-surface font-semibold mb-1" id="modal-amount"></p>
+          <p class="font-body-sm text-body-sm text-slate-muted mb-6">This simulates an MTN MoMo approval prompt for this demo - nothing real is charged.</p>
+          <div class="flex gap-3 justify-center">
+            <button class="px-6 py-2.5 rounded-lg bg-status-completed text-white font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all" id="modal-done" type="button">Done</button>
+            <button class="px-6 py-2.5 rounded-lg bg-white border border-outline-variant text-primary font-label-md text-label-md hover:bg-surface-container transition-all" id="modal-cancel" type="button">Cancel</button>
+          </div>
+        </div>
+      </div>
+    <% } %>
+  </main>
+
+  <%- include('../partials/footer') %>
+
+  <style>
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 24px;
+    }
+  </style>
+
+  <script>
+    (function () {
+      var form = document.getElementById('payment-form');
+      if (!form) return;
+
+      var alertEl = document.getElementById('page-alert');
+      var modal = document.getElementById('payment-modal');
+      var modalAmount = document.getElementById('modal-amount');
+      var doneBtn = document.getElementById('modal-done');
+      var cancelBtn = document.getElementById('modal-cancel');
+      var initiateBtn = document.getElementById('initiate-btn');
+      var sendCurrencySelect = document.getElementById('sendCurrency');
+      var quoteBox = document.getElementById('quote-box');
+      var currentPaymentId = null;
+      var latestQuote = null;
+
+      function showError(message) {
+        alertEl.textContent = Array.isArray(message) ? message.join(' ') : message;
+        alertEl.className = 'mb-6 px-4 py-3 rounded-lg font-body-sm text-body-sm bg-error-container text-on-error-container';
+      }
+
+      function clearError() {
+        alertEl.className = 'hidden mb-6';
+      }
+
+      function postJson(url, body) {
+        return fetch(url, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: body ? JSON.stringify(body) : undefined,
+        }).then(function (res) {
+          return res.json().then(function (body) {
+            if (!res.ok) throw new Error(body.message || 'Something went wrong.');
+            return body;
+          });
+        });
+      }
+
+      function refreshQuote() {
+        var selected = form.querySelector('input[name="chargeId"]:checked');
+        var sendCurrency = sendCurrencySelect ? sendCurrencySelect.value : null;
+
+        if (!selected || !sendCurrency) {
+          quoteBox.classList.add('hidden');
+          latestQuote = null;
+          return;
+        }
+
+        postJson('/payments/quote', { chargeId: selected.value || undefined, sendCurrency: sendCurrency })
+          .then(function (quote) {
+            latestQuote = quote;
+            document.getElementById('quote-charge-amount').textContent =
+              quote.chargeCurrency + ' ' + quote.chargeAmount.toLocaleString();
+            document.getElementById('quote-rate').textContent =
+              '1 ' + quote.chargeCurrency + ' = ' + quote.fxRate.toFixed(4) + ' ' + quote.sendCurrency;
+            document.getElementById('quote-converted').textContent =
+              quote.sendCurrency + ' ' + quote.convertedAmount.toLocaleString();
+            document.getElementById('quote-fee').textContent =
+              quote.sendCurrency + ' ' + quote.feeAmount.toLocaleString();
+            document.getElementById('quote-total').textContent =
+              quote.sendCurrency + ' ' + quote.totalToPay.toLocaleString();
+            quoteBox.classList.remove('hidden');
+          })
+          .catch(function (err) {
+            quoteBox.classList.add('hidden');
+            latestQuote = null;
+            showError(err.message);
+          });
+      }
+
+      form.addEventListener('change', function (event) {
+        if (event.target.name === 'chargeId' || event.target === sendCurrencySelect) {
+          clearError();
+          refreshQuote();
+        }
+      });
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        clearError();
+
+        var selected = form.querySelector('input[name="chargeId"]:checked');
+        if (!selected) {
+          showError('Select a charge, or "Pay full outstanding balance", first.');
+          return;
+        }
+
+        var phoneNumber = form.querySelector('#phoneNumber').value.trim();
+        if (!phoneNumber) {
+          showError('Enter the phone number you\'ll use for this payment.');
+          return;
+        }
+
+        initiateBtn.disabled = true;
+        initiateBtn.textContent = 'Starting…';
+
+        fetch('/payments/initiate', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chargeId: selected.value || undefined,
+            sendCurrency: sendCurrencySelect.value,
+            phoneNumber: phoneNumber,
+          }),
+        })
+          .then(function (res) {
+            return res.json().then(function (body) {
+              if (!res.ok) throw new Error(body.message || 'Could not start this payment.');
+              return body;
+            });
+          })
+          .then(function (payment) {
+            currentPaymentId = payment.id;
+            var totalText = payment.convertedAmount && payment.feeAmount
+              ? payment.sendCurrency + ' ' + (payment.convertedAmount + payment.feeAmount).toLocaleString()
+              : payment.currency + ' ' + payment.amount.toLocaleString();
+            modalAmount.textContent = totalText;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+          })
+          .catch(function (err) {
+            showError(err.message);
+          })
+          .finally(function () {
+            initiateBtn.disabled = false;
+            initiateBtn.textContent = 'Initiate payment';
+          });
+      });
+
+      doneBtn.addEventListener('click', function () {
+        if (!currentPaymentId) return;
+        doneBtn.disabled = true;
+        postJson('/payments/' + currentPaymentId + '/confirm')
+          .then(function () {
+            window.location.reload();
+          })
+          .catch(function (err) {
+            doneBtn.disabled = false;
+            showError(err.message);
+          });
+      });
+
+      cancelBtn.addEventListener('click', function () {
+        if (!currentPaymentId) {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+          return;
+        }
+        cancelBtn.disabled = true;
+        postJson('/payments/' + currentPaymentId + '/cancel')
+          .then(function () {
+            window.location.reload();
+          })
+          .catch(function (err) {
+            cancelBtn.disabled = false;
+            showError(err.message);
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

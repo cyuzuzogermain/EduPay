@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum KYCStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ActorRole {
+  STUDENT
+  INSTITUTION_ADMIN
+  PLATFORM_ADMIN
+}
+
+enum SchoolTransactionType {
+  CHARGE
+  PAYMENT
+}
+
+enum SchoolTransactionStatus {
+  PENDING
+  INITIATED
+  PENDING_APPROVAL
+  COMPLETED
+  REJECTED
+}
+
+/// Mirrors the payment lifecycle 1:1, plus CANCELLED for the one transition that isn't a status
+/// change at all (the cancel flow deletes the SchoolTransaction row outright).
+enum AuditAction {
+  INITIATED
+  CONFIRMED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum NotificationType {
+  PAYMENT_APPROVED
+  PAYMENT_REJECTED
+}
+
+model Institution {
+  id                     String                  @id @default(uuid())
+  name                   String
+  country                String
+  contactEmail           String                  @unique
+  /// The currency the institution is owed in and receives funds in - new
+  /// SchoolFinancialRecord/charges are denominated in this at creation time. Editable by the
+  /// institution's own admin or a platform admin; changing it does NOT retroactively change the
+  /// currency of records already created (those keep their original snapshot currency, exactly
+  /// like a real institution's SIS would).
+  preferredCurrency      String                  @default("RWF")
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  students               Student[]
+  admins                 InstitutionAdmin[]
+  schoolFinancialRecords SchoolFinancialRecord[]
+
+  @@map("institutions")
+}
+
+model Student {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password      String
+  country       String
+  institutionId String?
+  institution   Institution?   @relation(fields: [institutionId], references: [id])
+  /// Student's ID in their institution's own records system (SIS) - the reference key used
+  /// to look up their financial record in SchoolFinancialRecord. Not validated against the
+  /// institution's real system in this build; just a free-text reference students self-report.
+  schoolId      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  kycDocuments  KYCDocument[]
+  notifications Notification[]
+
+  @@unique([institutionId, schoolId])
+  @@index([institutionId])
+  @@map("students")
+}
+
+model InstitutionAdmin {
+  id            String      @id @default(uuid())
+  name          String
+  email         String      @unique
+  password      String
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([institutionId])
+  @@map("institution_admins")
+}
+
+model PlatformAdmin {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_admins")
+}
+
+/// Session store for refresh tokens across all actor types. `subjectId` intentionally has
+/// no foreign key (the subject lives in one of three different tables depending on `role`) -
+/// AuthService resolves it against the right table using `role` from the decoded JWT.
+model RefreshToken {
+  id        String    @id @default(uuid())
+  jti       String    @unique
+  subjectId String
+  role      ActorRole
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([subjectId])
+  @@map("refresh_tokens")
+}
+
+model KYCDocument {
+  id               String    @id @default(uuid())
+  studentId        String
+  student          Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  documentType     String
+  /// Generated (never client-supplied) filename the file is actually stored under on disk, under
+  /// UPLOADS_DIR - never derived from the original filename, so it can't collide or be used to
+  /// traverse outside the uploads directory.
+  fileName         String
+  /// Original client-supplied filename, kept only for display (e.g. download/tab titles) - never
+  /// used to resolve a path on disk.
+  originalFileName String
+  mimeType         String
+  fileSize         Int
+  status           KYCStatus @default(PENDING)
+  submittedAt      DateTime  @default(now())
+  reviewedAt       DateTime?
+  reviewNote       String?
+
+  @@index([studentId])
+  @@map("kyc_documents")
+}
+
+/// Simulates a record pulled from an institution's own Student Information System (SIS) -
+/// this is *not* owned or created by the student. It exists independently, keyed by
+/// (institutionId, schoolId), and a student's own Student.schoolId is matched against it to
+/// surface "what the school says I owe" inside EduPay. The outstanding balance is always
+/// computed live from `transactions` (charges minus COMPLETED payments) - never cached here,
+/// since it would need updating on every initiate/confirm/cancel/review and that's a bug
+/// waiting to happen.
+model SchoolFinancialRecord {
+  id            String              @id @default(uuid())
+  institutionId String
+  institution   Institution         @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  schoolId      String
+  studentName   String
+  program       String?
+  currency      String
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  transactions  SchoolTransaction[]
+
+  @@unique([institutionId, schoolId])
+  @@index([institutionId])
+  @@map("school_financial_records")
+}
+
+/// A row of either type CHARGE (an amount owed, always carries a dueDate) or PAYMENT (a
+/// student-initiated attempt to pay one or more charges, tracked via `chargeAllocations`).
+/// Payment lifecycle: INITIATED (simulating "waiting for phone approval") -> PENDING_APPROVAL
+/// (student confirmed) -> COMPLETED or REJECTED (institution/platform admin reviewed it).
+/// `reviewedAt`/`reviewNote` mirror KYCDocument's review fields.
+model SchoolTransaction {
+  id                 String                  @id @default(uuid())
+  recordId           String
+  record             SchoolFinancialRecord   @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  type               SchoolTransactionType
+  status             SchoolTransactionStatus
+  description        String
+  amount             Decimal                 @db.Decimal(12, 2)
+  currency           String
+  dueDate            DateTime?
+  occurredAt         DateTime                @default(now())
+  createdAt          DateTime                @default(now())
+  reviewedAt         DateTime?
+  reviewNote         String?
+  /// Populated for PAYMENT rows only - the id the (simulated) PaymentPartner assigned this
+  /// transaction, returned from PaymentPartner.initiatePayment.
+  partnerReferenceId String?                 @unique
+  /// Populated for PAYMENT rows only, when the client supplied one on POST /payments/initiate -
+  /// a second initiate request with the same key returns the original payment instead of
+  /// creating a duplicate (guards against double-submit).
+  idempotencyKey     String?                 @unique
+
+  /// Cross-border payment fields, populated for PAYMENT rows only. `amount`/`currency` above
+  /// always stay in the institution's currency (what it receives) - these describe what the
+  /// STUDENT actually paid. The rate is locked at initiate time and never recomputed - receipts,
+  /// history, and reports must always show exactly what was applied, not a live-refreshed rate.
+  /// 1 unit of `amount`'s currency = `fxRate` units of `sendCurrency`.
+  sendCurrency    String?
+  fxRate          Decimal? @db.Decimal(18, 8)
+  /// `amount` converted into `sendCurrency` at `fxRate`, before the EduPay fee.
+  convertedAmount Decimal? @db.Decimal(14, 2)
+  /// 1.5% of `convertedAmount`, in `sendCurrency` - added on top, paid by the student.
+  feeAmount       Decimal? @db.Decimal(14, 2)
+  /// Phone number the student will use for the (simulated) MoMo prompt - captured for realism.
+  phoneNumber     String?
+
+  /// Populated when this row is a PAYMENT - the charge(s) it covers.
+  paymentAllocations SchoolPaymentAllocation[] @relation("PaymentAllocations")
+  /// Populated when this row is a CHARGE - the payment(s) that have tried to cover it.
+  chargeAllocations  SchoolPaymentAllocation[] @relation("ChargeAllocations")
+
+  @@index([recordId])
+  @@map("school_transactions")
+}
+
+/// Join table linking one PAYMENT-type SchoolTransaction to the one or more CHARGE-type
+/// SchoolTransactions it covers, with the amount allocated to each (always the charge's full
+/// amount in this build - no partial-charge payments).
+model SchoolPaymentAllocation {
+  id        String            @id @default(uuid())
+  paymentId String
+  payment   SchoolTransaction @relation("PaymentAllocations", fields: [paymentId], references: [id], onDelete: Cascade)
+  chargeId  String
+  charge    SchoolTransaction @relation("ChargeAllocations", fields: [chargeId], references: [id], onDelete: Cascade)
+  amount    Decimal           @db.Decimal(12, 2)
+  createdAt DateTime          @default(now())
+
+  @@unique([paymentId, chargeId])
+  @@index([paymentId])
+  @@index([chargeId])
+  @@map("school_payment_allocations")
+}
+
+/// Append-only record of every payment state transition, written synchronously (same
+/// transaction as the state change - no queue). Deliberately has no FK to SchoolTransaction,
+/// same reasoning as RefreshToken.subjectId above: a row must survive even after its
+/// transaction is gone, which happens on cancel (the transaction row is deleted outright, not
+/// just re-statused). transactionId/recordId are therefore plain indexed strings, and the
+/// description/amount/currency are snapshotted onto the log row itself so history reads back
+/// correctly even after the underlying transaction no longer exists.
+model AuditLog {
+  id            String                   @id @default(uuid())
+  transactionId String
+  recordId      String
+  action        AuditAction
+  fromStatus    SchoolTransactionStatus?
+  toStatus      SchoolTransactionStatus?
+  description   String
+  amount        Decimal                  @db.Decimal(12, 2)
+  currency      String
+  actorRole     ActorRole
+  actorId       String
+  note          String?
+  createdAt     DateTime                 @default(now())
+
+  @@index([transactionId])
+  @@index([recordId])
+  @@map("audit_logs")
+}
+
+/// In-app replacement for email notifications - a row is created for the student whenever one
+/// of their payments is approved or rejected. Deliberately minimal: no read-per-device tracking,
+/// just a single `read` flag flipped when the student opens /notifications.
+model Notification {
+  id        String           @id @default(uuid())
+  studentId String
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  message   String
+  paymentId String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([studentId])
+  @@map("notifications")
+}

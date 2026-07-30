@@ -1,0 +1,40 @@
+<% if (typeof meta !== 'undefined' && meta && meta.totalPages > 1) {
+  var pageWindow = 2;
+  var startPage = Math.max(1, meta.page - pageWindow);
+  var endPage = Math.min(meta.totalPages, meta.page + pageWindow);
+  var pageNumbers = [];
+  for (var p = startPage; p <= endPage; p++) { pageNumbers.push(p); }
+%>
+  <nav aria-label="Pagination" class="px-6 py-4 border-t border-outline-variant bg-surface-container-low flex flex-col sm:flex-row justify-between items-center gap-4">
+    <span class="font-body-sm text-body-sm text-slate-muted">Page <%= meta.page %> of <%= meta.totalPages %> (<%= meta.total.toLocaleString() %> total)</span>
+    <div class="flex items-center gap-2">
+      <% if (meta.page > 1) { %>
+        <a class="p-2 border border-outline-variant rounded bg-white hover:bg-surface-container-high transition-colors" href="<%= baseUrl %>page=<%= meta.page - 1 %>">
+          <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+        </a>
+      <% } else { %>
+        <span class="p-2 border border-outline-variant rounded bg-white opacity-50 cursor-not-allowed">
+          <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+        </span>
+      <% } %>
+      <div class="hidden sm:flex gap-1">
+        <% pageNumbers.forEach(function (p) { %>
+          <% if (p === meta.page) { %>
+            <span class="w-8 h-8 flex items-center justify-center rounded bg-primary text-white font-label-md text-label-md"><%= p %></span>
+          <% } else { %>
+            <a class="w-8 h-8 flex items-center justify-center rounded bg-white border border-outline-variant text-primary font-label-md text-label-md hover:bg-surface-container transition-colors" href="<%= baseUrl %>page=<%= p %>"><%= p %></a>
+          <% } %>
+        <% }) %>
+      </div>
+      <% if (meta.page < meta.totalPages) { %>
+        <a class="p-2 border border-outline-variant rounded bg-white hover:bg-surface-container-high transition-colors" href="<%= baseUrl %>page=<%= meta.page + 1 %>">
+          <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+        </a>
+      <% } else { %>
+        <span class="p-2 border border-outline-variant rounded bg-white opacity-50 cursor-not-allowed">
+          <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+        </span>
+      <% } %>
+    </div>
+  </nav>
+<% } %>

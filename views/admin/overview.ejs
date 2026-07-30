@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin overview - EduPay</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('../partials/nav', { user }) %>
+
+  <main class="flex-grow w-full max-w-container-max mx-auto px-gutter py-8">
+    <h1 class="font-headline-lg text-headline-lg text-primary mb-8">Platform overview</h1>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div class="p-6 bg-white border border-outline-variant rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-label-md text-label-md text-slate-muted uppercase">Institutions</span>
+          <span class="material-symbols-outlined text-primary">domain</span>
+        </div>
+        <div class="font-display-stat text-display-stat text-primary"><%= institutionCount %></div>
+      </div>
+      <div class="p-6 bg-white border border-outline-variant rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-label-md text-label-md text-slate-muted uppercase">Students</span>
+          <span class="material-symbols-outlined text-secondary">group</span>
+        </div>
+        <div class="font-display-stat text-display-stat text-primary"><%= studentCount %></div>
+      </div>
+      <div class="p-6 bg-white border border-outline-variant rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-label-md text-label-md text-slate-muted uppercase">Pending KYC reviews</span>
+          <span class="material-symbols-outlined text-status-pending">pending_actions</span>
+        </div>
+        <div class="font-display-stat text-display-stat text-primary"><%= pendingCount %></div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-3">
+      <a class="px-6 py-2.5 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container active:scale-95 transition-all" href="/admin/institutions">Manage institutions</a>
+      <a class="px-6 py-2.5 bg-white border border-outline-variant text-primary rounded-lg font-label-md text-label-md hover:bg-surface-container transition-all" href="/admin/students">View all students</a>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

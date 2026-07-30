@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financial Records - EduPay</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('../partials/nav', { user }) %>
+
+  <main class="flex-grow w-full max-w-container-max mx-auto px-gutter py-margin-desktop">
+    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
+      <div class="space-y-1">
+        <h1 class="font-headline-lg text-headline-lg text-primary">Financial Records</h1>
+        <p class="font-body-md text-body-md text-slate-muted">Manage student accounts for <span class="font-semibold text-on-surface"><%= institution.name %></span></p>
+      </div>
+      <div class="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+        <form action="/institution/records" class="relative w-full sm:w-80 group" method="GET">
+          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-muted group-focus-within:text-primary transition-colors">search</span>
+          <input class="w-full pl-10 pr-4 py-2.5 bg-white border border-outline-variant rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md" name="search" placeholder="Search School ID or Name..." type="search" value="<%= search %>" />
+        </form>
+        <a class="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container active:scale-95 transition-all w-full sm:w-auto" href="#create-record">
+          <span class="material-symbols-outlined text-[18px]">add_circle</span>
+          Create New Record
+        </a>
+      </div>
+    </div>
+
+    <% if (error) { %><div class="mb-6 px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm"><%= error %></div><% } %>
+    <% if (success) { %><div class="mb-6 px-4 py-3 rounded-lg bg-status-completed/10 text-status-completed font-body-sm text-body-sm"><%= success %></div><% } %>
+
+    <!-- Quick Stats Bento Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="p-6 bg-white border border-outline-variant rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-label-md text-label-md text-slate-muted uppercase">Total Records</span>
+          <span class="material-symbols-outlined text-primary">group</span>
+        </div>
+        <div class="font-display-stat text-display-stat text-primary"><%= stats.recordCount.toLocaleString() %></div>
+      </div>
+      <div class="p-6 bg-white border border-outline-variant rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-label-md text-label-md text-slate-muted uppercase">Outstanding Balance</span>
+          <span class="material-symbols-outlined text-status-overdue">pending_actions</span>
+        </div>
+        <div class="font-display-stat text-[28px] text-primary"><%= stats.preferredCurrency %> <%= stats.totalOutstanding.toLocaleString() %></div>
+      </div>
+      <div class="p-6 bg-white border border-outline-variant rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-label-md text-label-md text-slate-muted uppercase">Fully Settled</span>
+          <span class="material-symbols-outlined text-status-completed">verified</span>
+        </div>
+        <div class="font-display-stat text-display-stat text-primary"><%= stats.settledCount.toLocaleString() %></div>
+      </div>
+      <div class="p-6 bg-white border border-outline-variant rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-label-md text-label-md text-slate-muted uppercase">Preferred Currency</span>
+          <span class="material-symbols-outlined text-secondary">payments</span>
+        </div>
+        <div class="font-display-stat text-display-stat text-primary"><%= institution.preferredCurrency %></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Records Table -->
+      <div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-outline-variant bg-surface-container-low">
+          <h3 class="font-headline-md text-headline-md text-primary">Student Ledgers</h3>
+        </div>
+        <% if (records.length === 0) { %>
+          <p class="p-8 text-center font-body-md text-body-md text-slate-muted"><% if (search) { %>No records match "<%= search %>".<% } else { %>No financial records yet - create one to get started.<% } %></p>
+        <% } else { %>
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse text-left">
+              <thead>
+                <tr class="bg-surface-container-highest border-b border-outline-variant">
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">School ID</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Name</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Program</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Outstanding Balance</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Status</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-outline-variant">
+                <% records.forEach(function (record) { %>
+                  <tr class="hover:bg-surface-container-low transition-colors">
+                    <td class="px-6 py-4 font-mono-data text-mono-data text-primary"><%= record.schoolId %></td>
+                    <td class="px-6 py-4 font-body-md text-body-md font-semibold text-on-surface"><%= record.studentName %></td>
+                    <td class="px-6 py-4 font-body-md text-body-md text-slate-muted"><%= record.program || '—' %></td>
+                    <td class="px-6 py-4 font-mono-data text-mono-data text-primary"><%= record.currency %> <%= record.outstandingBalance.toLocaleString() %></td>
+                    <td class="px-6 py-4">
+                      <% if (record.outstandingBalance > 0) { %>
+                        <%- include('../partials/badge', { status: 'PAYMENT_PENDING', label: 'Outstanding' }) %>
+                      <% } else { %>
+                        <%- include('../partials/badge', { status: 'COMPLETED', label: 'Cleared' }) %>
+                      <% } %>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                      <a class="px-4 py-1.5 bg-white text-primary border border-primary/20 rounded font-label-md text-label-md hover:bg-primary hover:text-white transition-all shadow-sm inline-block" href="/institution/records/<%= record.id %>">Manage</a>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <%- include('../partials/pagination', { meta, baseUrl: '/institution/records?' + (search ? 'search=' + encodeURIComponent(search) + '&' : '') }) %>
+        <% } %>
+      </div>
+
+      <!-- Side column: create record + currency settings -->
+      <div class="flex flex-col gap-6">
+        <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-6" id="create-record">
+          <h3 class="font-headline-md text-headline-md text-primary mb-5">Create record</h3>
+          <form action="/institution/records" class="space-y-5" method="POST">
+            <div>
+              <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="schoolId">School ID</label>
+              <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="schoolId" minlength="1" name="schoolId" required type="text" />
+              <p class="mt-1.5 font-body-sm text-body-sm text-slate-muted">Must be unique within your institution - this is what students match against.</p>
+            </div>
+            <div>
+              <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="studentName">Student name</label>
+              <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="studentName" minlength="2" name="studentName" required type="text" />
+            </div>
+            <div>
+              <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="program">Program</label>
+              <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="program" name="program" type="text" />
+            </div>
+            <button class="w-full px-6 py-2.5 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container active:scale-95 transition-all flex items-center justify-center gap-2" type="submit">
+              <span class="material-symbols-outlined text-[18px]">add_circle</span>
+              Create record
+            </button>
+          </form>
+        </div>
+
+        <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-6">
+          <h3 class="font-headline-md text-headline-md text-primary mb-2">Preferred currency</h3>
+          <p class="font-body-sm text-body-sm text-slate-muted mb-4">
+            The currency <%= institution.name %> is owed in and receives funds in. New charges are
+            denominated in this currency - changing it does not affect charges already on file.
+          </p>
+          <form action="/institution/currency" method="POST">
+            <select class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface mb-3" name="preferredCurrency">
+              <% currencies.forEach(function (c) { %>
+                <option <%= c === institution.preferredCurrency ? 'selected' : '' %> value="<%= c %>"><%= c %></option>
+              <% }) %>
+            </select>
+            <button class="w-full px-6 py-2.5 bg-white border border-outline-variant text-primary rounded-lg font-label-md text-label-md hover:bg-surface-container transition-all" type="submit">Save</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

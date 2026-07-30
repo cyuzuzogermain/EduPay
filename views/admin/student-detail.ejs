@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= student.name %> - EduPay</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('../partials/nav', { user }) %>
+
+  <main class="flex-grow w-full max-w-container-max mx-auto px-gutter py-8">
+    <a class="inline-flex items-center gap-1 mb-4 font-body-sm text-body-sm text-slate-muted hover:text-primary transition-colors" href="/admin/students">
+      <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+      Back to students
+    </a>
+
+    <h1 class="font-headline-lg text-headline-lg text-primary mb-6"><%= student.name %></h1>
+
+    <% if (error) { %><div class="mb-6 px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm"><%= error %></div><% } %>
+    <% if (success) { %><div class="mb-6 px-4 py-3 rounded-lg bg-status-completed/10 text-status-completed font-body-sm text-body-sm"><%= success %></div><% } %>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-outline-variant bg-surface-container-low">
+          <h2 class="font-headline-md text-headline-md text-primary">KYC documents</h2>
+        </div>
+        <% if (kycDocuments.length === 0) { %>
+          <p class="p-6 font-body-md text-body-md text-slate-muted">No documents submitted yet.</p>
+        <% } else { %>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-surface-container-low border-b border-outline-variant">
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Type</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Status</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Submitted</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">File</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Note</th>
+                  <th class="px-6 py-3"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-outline-variant">
+                <% kycDocuments.forEach(function (doc) { %>
+                  <tr class="hover:bg-surface-container-low transition-colors">
+                    <td class="px-6 py-4 font-body-md text-on-surface"><%= doc.documentType %></td>
+                    <td class="px-6 py-4"><%- include('../partials/badge', { status: doc.status }) %></td>
+                    <td class="px-6 py-4 font-body-sm text-body-sm text-slate-muted"><%= new Date(doc.submittedAt).toLocaleDateString() %></td>
+                    <td class="px-6 py-4">
+                      <a class="text-primary hover:underline font-label-md text-label-md inline-flex items-center gap-1" href="/kyc/<%= doc.id %>/file" rel="noopener noreferrer" target="_blank">
+                        <span class="material-symbols-outlined text-[18px]">description</span>
+                        View
+                      </a>
+                    </td>
+                    <td class="px-6 py-4 font-body-sm text-body-sm text-slate-muted"><%= doc.reviewNote || '—' %></td>
+                    <td class="px-6 py-4">
+                      <% if (doc.status === 'PENDING') { %>
+                        <form action="/admin/students/<%= student.id %>/kyc/<%= doc.id %>/review" class="flex flex-col gap-2 min-w-[200px]" method="POST">
+                          <input class="px-2 py-1.5 rounded border border-outline-variant text-body-sm font-body-sm" maxlength="500" name="note" placeholder="Optional note for the student" type="text" />
+                          <div class="flex gap-2">
+                            <button class="px-3 py-1.5 rounded-lg bg-status-completed text-white font-label-md text-[11px] hover:opacity-90 transition-opacity" name="status" type="submit" value="APPROVED">Approve</button>
+                            <button class="px-3 py-1.5 rounded-lg bg-status-rejected/10 text-status-rejected border border-status-rejected/20 font-label-md text-[11px] hover:bg-status-rejected hover:text-white transition-colors" name="status" type="submit" value="REJECTED">Reject</button>
+                          </div>
+                        </form>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-6 h-fit">
+        <h2 class="font-headline-md text-headline-md text-primary mb-4">Profile</h2>
+        <dl class="space-y-3 font-body-sm text-body-sm">
+          <div class="flex justify-between"><dt class="text-slate-muted">Email</dt><dd class="text-on-surface font-medium"><%= student.email %></dd></div>
+          <div class="flex justify-between"><dt class="text-slate-muted">Country</dt><dd class="text-on-surface font-medium"><%= student.country %></dd></div>
+          <div class="flex justify-between"><dt class="text-slate-muted">Member since</dt><dd class="text-on-surface font-medium"><%= new Date(student.createdAt).toLocaleDateString() %></dd></div>
+        </dl>
+      </div>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

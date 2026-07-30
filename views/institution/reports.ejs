@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reports - EduPay</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('../partials/nav', { user }) %>
+
+  <main class="flex-grow w-full max-w-container-max mx-auto px-gutter py-8">
+    <div class="mb-6">
+      <h1 class="font-headline-lg text-headline-lg text-primary mb-1">Payments report</h1>
+      <p class="font-body-md text-body-md text-slate-muted">Every payment attempt for your institution's students, filterable below.</p>
+    </div>
+
+    <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-6 mb-6">
+      <form action="/institution/reports" class="flex flex-wrap items-end gap-4" method="GET">
+        <div>
+          <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="dateFrom">From</label>
+          <input class="px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary transition-all font-body-md text-body-md text-on-surface" id="dateFrom" name="dateFrom" type="date" value="<%= filters.dateFrom || '' %>" />
+        </div>
+        <div>
+          <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="dateTo">To</label>
+          <input class="px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary transition-all font-body-md text-body-md text-on-surface" id="dateTo" name="dateTo" type="date" value="<%= filters.dateTo || '' %>" />
+        </div>
+        <div>
+          <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="status">Status</label>
+          <select class="px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary transition-all font-body-md text-body-md text-on-surface min-w-[170px]" id="status" name="status">
+            <option value="">All statuses</option>
+            <% ['INITIATED', 'PENDING_APPROVAL', 'COMPLETED', 'REJECTED'].forEach(function (s) { %>
+              <option <%= filters.status === s ? 'selected' : '' %> value="<%= s %>"><%= s.replace('_', ' ') %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div>
+          <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="schoolId">School ID</label>
+          <input class="px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary transition-all font-body-md text-body-md text-on-surface" id="schoolId" name="schoolId" placeholder="e.g. STU-1001" type="text" value="<%= filters.schoolId || '' %>" />
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="px-5 py-2.5 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container active:scale-95 transition-all" type="submit">Apply filters</button>
+          <a class="px-5 py-2.5 bg-white border border-outline-variant text-primary rounded-lg font-label-md text-label-md hover:bg-surface-container transition-all" href="/institution/reports">Reset</a>
+          <%
+            var qs = ['dateFrom', 'dateTo', 'status', 'schoolId']
+              .filter(function (k) { return filters[k]; })
+              .map(function (k) { return k + '=' + encodeURIComponent(filters[k]); })
+              .join('&');
+          %>
+          <a class="px-5 py-2.5 bg-white border border-outline-variant text-primary rounded-lg font-label-md text-label-md hover:bg-surface-container transition-all inline-flex items-center gap-1.5" href="/reports/institution/export<%= qs ? '?' + qs : '' %>">
+            <span class="material-symbols-outlined text-[18px]">download</span>
+            Export CSV
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <div class="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-outline-variant bg-surface-container-low">
+        <h2 class="font-headline-md text-headline-md text-primary"><%= meta.total.toLocaleString() %> payment<%= meta.total === 1 ? '' : 's' %></h2>
+      </div>
+      <% if (payments.length === 0) { %>
+        <p class="p-8 text-center font-body-md text-body-md text-slate-muted">No payments match these filters.</p>
+      <% } else { %>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse min-w-[1100px]">
+            <thead>
+              <tr class="bg-surface-container-low border-b border-outline-variant">
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Student</th>
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">School ID</th>
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Charges covered</th>
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Amount received</th>
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Paid in</th>
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">FX rate</th>
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Fee</th>
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Initiated</th>
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Reviewed</th>
+                <th class="px-6 py-3"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-outline-variant">
+              <% payments.forEach(function (p) { %>
+                <tr class="hover:bg-surface-container-low transition-colors">
+                  <td class="px-6 py-4 font-body-md text-on-surface font-semibold"><%= p.studentName %></td>
+                  <td class="px-6 py-4 font-mono-data text-mono-data text-slate-muted"><%= p.schoolId %></td>
+                  <td class="px-6 py-4 font-body-sm text-body-sm text-slate-muted"><%= p.chargesCovered %></td>
+                  <td class="px-6 py-4 font-mono-data text-mono-data text-on-surface"><%= p.currency %> <%= p.amount.toLocaleString() %></td>
+                  <td class="px-6 py-4 font-body-sm text-body-sm text-on-surface"><%= p.sendCurrency || '—' %></td>
+                  <td class="px-6 py-4 font-mono-data text-mono-data text-slate-muted"><%= p.fxRate ? p.fxRate.toFixed(4) : '—' %></td>
+                  <td class="px-6 py-4 font-mono-data text-mono-data text-slate-muted"><%= p.feeAmount !== null ? (p.sendCurrency + ' ' + p.feeAmount.toLocaleString()) : '—' %></td>
+                  <td class="px-6 py-4"><%- include('../partials/badge', { status: p.status, label: p.status.replace(/_/g, ' ') }) %></td>
+                  <td class="px-6 py-4 font-body-sm text-body-sm text-slate-muted"><%= new Date(p.occurredAt).toLocaleDateString() %></td>
+                  <td class="px-6 py-4 font-body-sm text-body-sm text-slate-muted"><%= p.reviewedAt ? new Date(p.reviewedAt).toLocaleDateString() : '—' %></td>
+                  <td class="px-6 py-4">
+                    <% if (p.status === 'COMPLETED') { %>
+                      <a class="text-primary hover:underline font-label-md text-label-md" href="/payments/<%= p.id %>/receipt">Receipt</a>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <%
+          var baseUrl = '/institution/reports?' + ['dateFrom', 'dateTo', 'status', 'schoolId']
+            .filter(function (k) { return filters[k]; })
+            .map(function (k) { return k + '=' + encodeURIComponent(filters[k]) + '&'; })
+            .join('');
+        %>
+        <%- include('../partials/pagination', { meta, baseUrl }) %>
+      <% } %>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

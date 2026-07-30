@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+build/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+
+# uploaded files (KYC documents etc.)
+/uploads/
+
+# logs
+*.log
+npm-debug.log*
+
+# coverage
+coverage/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# prisma
+prisma/*.db

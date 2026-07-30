@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - EduPay</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('../partials/nav', { user, unreadCount }) %>
+
+  <main class="flex-grow max-w-container-max mx-auto px-gutter py-8 w-full">
+    <header class="mb-8">
+      <h1 class="font-headline-lg text-headline-lg text-primary">Welcome back, <%= student.name %>.</h1>
+      <p class="font-body-lg text-body-lg text-slate-muted">Here is what is happening with your education finances today.</p>
+    </header>
+
+    <% if (error) { %><div class="mb-6 px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm"><%= error %></div><% } %>
+    <% if (success) { %><div class="mb-6 px-4 py-3 rounded-lg bg-status-completed/10 text-status-completed font-body-sm text-body-sm"><%= success %></div><% } %>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+      <!-- Balance Summary -->
+      <div class="md:col-span-8 bg-primary rounded-xl p-8 text-on-primary relative overflow-hidden flex flex-col justify-between min-h-[220px] shadow-xl">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-[0.03] rounded-full -mr-20 -mt-20"></div>
+        <div class="z-10">
+          <p class="font-label-md text-label-md opacity-80 uppercase tracking-widest mb-2">Total Outstanding Balance</p>
+          <% if (balance) { %>
+            <h2 class="font-display-stat text-display-stat"><%= balance.totalBalance.toLocaleString() %> <span class="text-headline-md font-normal opacity-70"><%= balance.currency %></span></h2>
+          <% } else { %>
+            <h2 class="font-headline-md text-headline-md opacity-80">No financial record linked yet</h2>
+          <% } %>
+        </div>
+        <div class="z-10 flex items-center gap-4 mt-6">
+          <a class="bg-tertiary-fixed-dim text-primary px-6 py-3 rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all flex items-center gap-2" href="/payments">
+            <span class="material-symbols-outlined">payments</span>
+            Make a Payment
+          </a>
+        </div>
+      </div>
+
+      <!-- Quick Links -->
+      <div class="md:col-span-4 grid grid-cols-1 gap-4">
+        <a class="group bg-white border border-outline-variant p-5 rounded-xl hover:shadow-lg transition-all flex items-center justify-between" href="/payments">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-lg bg-primary-fixed flex items-center justify-center text-primary">
+              <span class="material-symbols-outlined">receipt_long</span>
+            </div>
+            <div>
+              <p class="font-headline-md text-body-lg font-bold text-primary">Payments</p>
+              <p class="font-body-sm text-body-sm text-slate-muted">Charges, receipts, and history</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-slate-muted group-hover:text-primary transition-colors">chevron_right</span>
+        </a>
+        <a class="group bg-white border border-outline-variant p-5 rounded-xl hover:shadow-lg transition-all flex items-center justify-between" href="/kyc">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary">
+              <span class="material-symbols-outlined">verified_user</span>
+            </div>
+            <div>
+              <p class="font-headline-md text-body-lg font-bold text-primary">Submit KYC</p>
+              <p class="font-body-sm text-body-sm text-slate-muted">
+                Status:
+                <% if (kycStatus.status) { %>
+                  <%- include('../partials/badge', { status: kycStatus.status }) %>
+                <% } else { %>Not submitted<% } %>
+              </p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-slate-muted group-hover:text-primary transition-colors">chevron_right</span>
+        </a>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="md:col-span-8">
+        <div class="bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+          <div class="px-6 py-4 border-b border-outline-variant flex justify-between items-center">
+            <h3 class="font-headline-md text-headline-md text-primary">Recent Activity</h3>
+            <a class="text-primary font-label-md text-label-md hover:underline" href="/payments">View All</a>
+          </div>
+          <div class="divide-y divide-outline-variant">
+            <% if (!balance || balance.transactions.length === 0) { %>
+              <p class="px-6 py-8 text-center font-body-md text-body-md text-slate-muted">Nothing on file yet.</p>
+            <% } else { %>
+              <% balance.transactions.slice(0, 4).forEach(function (tx) { %>
+                <div class="px-6 py-4 flex items-center justify-between hover:bg-surface-container-low transition-colors">
+                  <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center <%= tx.status === 'COMPLETED' ? 'bg-status-completed/10 text-status-completed' : (tx.status === 'REJECTED' ? 'bg-status-rejected/10 text-status-rejected' : 'bg-status-pending/10 text-status-pending') %>">
+                      <span class="material-symbols-outlined"><%= tx.status === 'COMPLETED' ? 'check_circle' : (tx.status === 'REJECTED' ? 'error' : 'schedule') %></span>
+                    </div>
+                    <div>
+                      <p class="font-body-md text-body-md text-primary font-semibold"><%= tx.description %></p>
+                      <p class="font-body-sm text-body-sm text-slate-muted"><%= new Date(tx.occurredAt).toLocaleDateString() %></p>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <p class="font-mono-data text-mono-data text-primary font-bold"><%= tx.currency %> <%= tx.amount.toLocaleString() %></p>
+                    <%- include('../partials/badge', { status: tx.status }) %>
+                  </div>
+                </div>
+              <% }) %>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Summary -->
+      <div class="md:col-span-4 bg-surface-container-highest rounded-xl p-6 border border-outline-variant">
+        <h4 class="font-label-md text-label-md text-primary uppercase mb-4">Profile</h4>
+        <dl class="space-y-3 font-body-sm text-body-sm">
+          <div class="flex justify-between"><dt class="text-slate-muted">Email</dt><dd class="text-on-surface font-medium"><%= student.email %></dd></div>
+          <div class="flex justify-between"><dt class="text-slate-muted">Country</dt><dd class="text-on-surface font-medium"><%= student.country %></dd></div>
+          <div class="flex justify-between">
+            <dt class="text-slate-muted">Institution</dt>
+            <dd class="text-on-surface font-medium text-right">
+              <% var linked = institutions.find(function (i) { return i.id === student.institutionId; }); %>
+              <%= linked ? linked.name : 'Not linked' %>
+            </dd>
+          </div>
+          <div class="flex justify-between"><dt class="text-slate-muted">School ID</dt><dd class="text-on-surface font-mono-data text-mono-data"><%= student.schoolId || 'Not set' %></dd></div>
+          <div class="flex justify-between"><dt class="text-slate-muted">Member since</dt><dd class="text-on-surface font-medium"><%= new Date(student.createdAt).toLocaleDateString() %></dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <!-- Edit Profile -->
+    <div class="mt-6 bg-white border border-outline-variant rounded-xl shadow-sm p-6">
+      <h3 class="font-headline-md text-headline-md text-primary mb-5">Edit profile</h3>
+      <form action="/dashboard" class="grid grid-cols-1 md:grid-cols-2 gap-5" method="POST">
+        <div>
+          <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="name">Full name</label>
+          <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="name" minlength="2" name="name" required type="text" value="<%= student.name %>" />
+        </div>
+        <div>
+          <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="country">Country</label>
+          <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="country" minlength="2" name="country" required type="text" value="<%= student.country %>" />
+        </div>
+        <div>
+          <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="institutionId">Institution</label>
+          <select class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="institutionId" name="institutionId">
+            <option <%= !student.institutionId ? 'selected' : '' %> value="">Not linked</option>
+            <% institutions.forEach(function (institution) { %>
+              <option <%= institution.id === student.institutionId ? 'selected' : '' %> value="<%= institution.id %>">
+                <%= institution.name %> (<%= institution.country %>)
+              </option>
+            <% }) %>
+          </select>
+        </div>
+        <div>
+          <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="schoolId">School ID</label>
+          <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="schoolId" name="schoolId" placeholder="e.g. STU-1001" type="text" value="<%= student.schoolId || '' %>" />
+          <p class="mt-1.5 font-body-sm text-body-sm text-slate-muted">Used to match your tuition balance on the Payments page. Requires an institution to be selected above.</p>
+        </div>
+        <div class="md:col-span-2">
+          <button class="px-6 py-2.5 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container active:scale-95 transition-all" type="submit">Save changes</button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

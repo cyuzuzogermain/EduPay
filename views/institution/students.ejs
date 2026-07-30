@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Students - EduPay</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('../partials/nav', { user }) %>
+
+  <main class="flex-grow w-full max-w-container-max mx-auto px-gutter py-8">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+      <h1 class="font-headline-lg text-headline-lg text-primary">Students</h1>
+      <div class="p-4 bg-white border border-outline-variant rounded-xl shadow-sm flex items-center gap-3">
+        <span class="material-symbols-outlined text-status-pending">pending_actions</span>
+        <div>
+          <p class="font-label-md text-[10px] text-slate-muted uppercase tracking-wider">Pending KYC reviews</p>
+          <p class="font-headline-md text-headline-md text-primary leading-none"><%= pendingCount %></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+      <% if (students.length === 0) { %>
+        <p class="p-8 text-center font-body-md text-body-md text-slate-muted">No students linked to your institution yet.</p>
+      <% } else { %>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-surface-container-low border-b border-outline-variant">
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Name</th>
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Email</th>
+                <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">KYC status</th>
+                <th class="px-6 py-3"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-outline-variant">
+              <% students.forEach(function (s) { %>
+                <tr class="hover:bg-surface-container-low transition-colors">
+                  <td class="px-6 py-4 font-body-md text-body-md font-semibold text-on-surface"><%= s.name %></td>
+                  <td class="px-6 py-4 font-body-sm text-body-sm text-slate-muted"><%= s.email %></td>
+                  <td class="px-6 py-4"><% if (s.kycStatus) { %><%- include('../partials/badge', { status: s.kycStatus }) %><% } else { %><span class="font-body-sm text-body-sm text-slate-muted">Not submitted</span><% } %></td>
+                  <td class="px-6 py-4 text-right"><a class="text-primary hover:underline font-label-md text-label-md" href="/institution/students/<%= s.id %>">View &rarr;</a></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <%- include('../partials/pagination', { meta, baseUrl: '/institution/students?' }) %>
+      <% } %>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

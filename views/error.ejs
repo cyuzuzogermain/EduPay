@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %> - EduPay</title>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('partials/nav', { user }) %>
+
+  <main class="flex-grow flex items-center justify-center px-gutter py-16">
+    <div class="w-full max-w-md bg-white border border-outline-variant rounded-xl shadow-sm p-8 text-center">
+      <span class="material-symbols-outlined text-status-rejected text-[48px] mb-3 inline-block">error</span>
+      <h1 class="font-headline-lg text-headline-lg text-primary mb-2"><%= title %></h1>
+      <p class="font-body-md text-body-md text-slate-muted mb-6"><%= message %></p>
+      <a class="inline-block px-6 py-2.5 bg-white border border-outline-variant text-primary rounded-lg font-label-md text-label-md hover:bg-surface-container transition-all" href="/">Back to EduPay</a>
+    </div>
+  </main>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

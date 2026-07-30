@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= institution.name %> - EduPay</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('../partials/nav', { user }) %>
+
+  <main class="flex-grow w-full max-w-container-max mx-auto px-gutter py-8">
+    <a class="inline-flex items-center gap-1 mb-4 font-body-sm text-body-sm text-slate-muted hover:text-primary transition-colors" href="/admin/institutions">
+      <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+      Back to institutions
+    </a>
+
+    <h1 class="font-headline-lg text-headline-lg text-primary mb-1"><%= institution.name %></h1>
+    <p class="font-body-md text-body-md text-slate-muted mb-6">
+      <%= institution.country %> &middot; <%= institution.contactEmail %> &middot;
+      preferred currency <span class="font-mono-data text-mono-data font-semibold text-on-surface"><%= institution.preferredCurrency %></span>
+    </p>
+
+    <% if (error) { %><div class="mb-6 px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm"><%= error %></div><% } %>
+    <% if (success) { %><div class="mb-6 px-4 py-3 rounded-lg bg-status-completed/10 text-status-completed font-body-sm text-body-sm"><%= success %></div><% } %>
+
+    <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-6 mb-6 max-w-lg">
+      <h2 class="font-headline-md text-headline-md text-primary mb-2">Preferred currency</h2>
+      <p class="font-body-sm text-body-sm text-slate-muted mb-4">
+        The currency this institution is owed in and receives funds in. New charges are
+        denominated in this currency - changing it does not affect charges already on file.
+      </p>
+      <form action="/admin/institutions/<%= institution.id %>/currency" class="flex items-end gap-3" method="POST">
+        <div class="flex-grow">
+          <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="preferredCurrency">Currency</label>
+          <select class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="preferredCurrency" name="preferredCurrency">
+            <% currencies.forEach(function (c) { %>
+              <option <%= c === institution.preferredCurrency ? 'selected' : '' %> value="<%= c %>"><%= c %></option>
+            <% }) %>
+          </select>
+        </div>
+        <button class="px-6 py-2.5 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container active:scale-95 transition-all" type="submit">Save</button>
+      </form>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-outline-variant bg-surface-container-low">
+          <h2 class="font-headline-md text-headline-md text-primary">Students (<%= studentTotal.toLocaleString() %>)</h2>
+        </div>
+        <% if (students.length === 0) { %>
+          <p class="p-6 font-body-md text-body-md text-slate-muted">No students linked yet.</p>
+        <% } else { %>
+          <% if (studentTotal > students.length) { %>
+            <p class="px-6 pt-4 font-body-sm text-body-sm text-slate-muted">Showing the first <%= students.length %> - see <a class="text-primary hover:underline" href="/admin/students">All students</a> to browse the rest.</p>
+          <% } %>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-surface-container-low border-b border-outline-variant">
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Name</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Email</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">KYC status</th>
+                  <th class="px-6 py-3"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-outline-variant">
+                <% students.forEach(function (s) { %>
+                  <tr class="hover:bg-surface-container-low transition-colors">
+                    <td class="px-6 py-4 font-body-md text-on-surface"><%= s.name %></td>
+                    <td class="px-6 py-4 font-body-sm text-body-sm text-slate-muted"><%= s.email %></td>
+                    <td class="px-6 py-4"><% if (s.kycStatus) { %><%- include('../partials/badge', { status: s.kycStatus }) %><% } else { %><span class="font-body-sm text-body-sm text-slate-muted">Not submitted</span><% } %></td>
+                    <td class="px-6 py-4 text-right"><a class="text-primary hover:underline font-label-md text-label-md" href="/admin/students/<%= s.id %>">View &rarr;</a></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+
+        <div class="px-6 py-4 border-t border-outline-variant bg-surface-container-low">
+          <h2 class="font-headline-md text-headline-md text-primary">Admins</h2>
+        </div>
+        <% if (admins.length === 0) { %>
+          <p class="p-6 font-body-md text-body-md text-slate-muted">No admin accounts yet.</p>
+        <% } else { %>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-surface-container-low border-b border-outline-variant">
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Name</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Email</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-outline-variant">
+                <% admins.forEach(function (a) { %>
+                  <tr><td class="px-6 py-4 font-body-md text-on-surface"><%= a.name %></td><td class="px-6 py-4 font-body-sm text-body-sm text-slate-muted"><%= a.email %></td></tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-6 h-fit">
+        <h2 class="font-headline-md text-headline-md text-primary mb-2">Provision an institution admin</h2>
+        <p class="font-body-sm text-body-sm text-slate-muted mb-5">This account can review KYC and view students for <%= institution.name %> only.</p>
+        <form action="/admin/institutions/<%= institution.id %>/admins" class="space-y-5" method="POST">
+          <div>
+            <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="name">Full name</label>
+            <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="name" minlength="2" name="name" required type="text" />
+          </div>
+          <div>
+            <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="email">Email</label>
+            <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="email" name="email" required type="email" />
+          </div>
+          <div>
+            <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="password">Temporary password</label>
+            <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="password" minlength="8" name="password" required type="password" />
+          </div>
+          <button class="w-full px-6 py-2.5 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container active:scale-95 transition-all" type="submit">Create admin account</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

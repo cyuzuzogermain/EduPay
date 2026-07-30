@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduPay</title>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('partials/nav', { user }) %>
+
+  <main class="flex-grow">
+    <section class="bg-primary text-on-primary px-gutter py-20 md:py-28 text-center relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-96 h-96 bg-white opacity-[0.03] rounded-full -mr-32 -mt-32"></div>
+      <div class="relative z-10 max-w-2xl mx-auto">
+        <h1 class="font-headline-lg text-[32px] md:text-[40px] leading-tight font-bold mb-4">Pay tuition abroad, in your own currency.</h1>
+        <p class="font-body-lg text-body-lg opacity-80 mb-8">
+          EduPay is the orchestration layer between students, a licensed payment partner, and
+          institutional systems - students pay in their local currency, institutions receive the
+          funds they expect. This is an MVP build for demonstration purposes.
+        </p>
+        <div class="flex flex-col sm:flex-row justify-center gap-3">
+          <a class="px-6 py-3 rounded-lg bg-tertiary-fixed-dim text-primary font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all" href="/register">Create a student account</a>
+          <a class="px-6 py-3 rounded-lg bg-white/10 text-white border border-white/20 font-label-md text-label-md hover:bg-white/20 active:scale-95 transition-all" href="/login">I already have an account</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="max-w-2xl mx-auto px-gutter py-12">
+      <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-8">
+        <h2 class="font-headline-md text-headline-md text-primary mb-5">Who uses EduPay</h2>
+        <dl class="space-y-5">
+          <div>
+            <dt class="font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-1">Students</dt>
+            <dd class="font-body-md text-body-md text-on-surface">Register, submit KYC documents, and pay fees in their own currency.</dd>
+          </div>
+          <div>
+            <dt class="font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-1">Institution admins</dt>
+            <dd class="font-body-md text-body-md text-on-surface">Review and approve/reject KYC and payment submissions for their own institution's students.</dd>
+          </div>
+          <div>
+            <dt class="font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-1">Platform admins</dt>
+            <dd class="font-body-md text-body-md text-on-surface">Provision institutions and institution admin accounts, oversee KYC and payments platform-wide.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+  </main>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

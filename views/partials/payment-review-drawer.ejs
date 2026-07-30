@@ -1,0 +1,172 @@
+<!-- Side Panel Overlay -->
+<div class="fixed inset-0 bg-primary/20 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300" data-review-close="" id="sidePanelOverlay"></div>
+
+<!-- Side Panel Review Area -->
+<div class="fixed top-0 right-0 h-full w-full md:w-[480px] bg-surface-container-lowest z-[70] translate-x-full side-panel-transition shadow-2xl flex flex-col" id="reviewPanel">
+  <div class="p-6 border-b border-outline-variant flex items-center justify-between bg-primary text-on-primary">
+    <div>
+      <h2 class="font-headline-md text-headline-md">Payment Review</h2>
+      <p class="font-body-sm text-body-sm opacity-80">Verify transaction details before finalization.</p>
+    </div>
+    <button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors" data-review-close="" type="button">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+
+  <div class="flex-grow overflow-y-auto p-6 custom-scrollbar space-y-8">
+    <section>
+      <h3 class="font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-4">Student Information</h3>
+      <div class="bg-surface-container-low p-4 rounded-xl flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-white font-bold text-lg" id="reviewAvatar"></div>
+        <div>
+          <p class="font-headline-md text-[18px] text-primary" id="reviewStudentName"></p>
+          <p class="font-mono-data text-mono-data text-slate-muted" id="reviewSchoolId"></p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h3 class="font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-4">Transaction Details</h3>
+      <div class="space-y-3">
+        <div class="flex justify-between items-center py-2 border-b border-outline-variant border-dashed">
+          <span class="font-body-md text-body-md text-on-surface-variant">Description</span>
+          <span class="font-label-md text-label-md text-primary text-right" id="reviewDescription"></span>
+        </div>
+        <div class="flex justify-between items-start py-2 border-b border-outline-variant border-dashed">
+          <span class="font-body-md text-body-md text-on-surface-variant">Charges covered</span>
+          <div class="flex flex-wrap gap-1 justify-end" id="reviewCharges"></div>
+        </div>
+        <div class="flex justify-between items-center py-2 border-b border-outline-variant border-dashed">
+          <span class="font-body-md text-body-md text-on-surface-variant">Payment mode</span>
+          <span class="font-label-md text-label-md bg-surface-container-highest px-2 py-1 rounded">Simulated MTN MoMo</span>
+        </div>
+        <div class="flex justify-between items-center py-2 border-b border-outline-variant border-dashed">
+          <span class="font-body-md text-body-md text-on-surface-variant">Submitted</span>
+          <span class="font-mono-data text-mono-data text-primary" id="reviewSubmitted"></span>
+        </div>
+        <div class="flex justify-between items-center py-4">
+          <span class="font-headline-md text-headline-md text-primary">Amount Received</span>
+          <span class="font-display-stat text-[24px] text-primary" id="reviewAmount"></span>
+        </div>
+      </div>
+
+      <div class="mt-2 p-4 rounded-xl border border-outline-variant bg-surface hidden" id="reviewFxSection">
+        <p class="font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-3">Cross-border payment</p>
+        <dl class="grid grid-cols-2 gap-y-2 text-body-sm font-body-sm">
+          <dt class="text-slate-muted">Paid by student in</dt><dd class="text-right font-semibold" id="reviewSendCurrency"></dd>
+          <dt class="text-slate-muted">Exchange rate</dt><dd class="text-right font-mono-data text-mono-data" id="reviewFxRate"></dd>
+          <dt class="text-slate-muted">Converted amount</dt><dd class="text-right font-mono-data text-mono-data" id="reviewConverted"></dd>
+          <dt class="text-slate-muted">EduPay fee (1.5%)</dt><dd class="text-right font-mono-data text-mono-data" id="reviewFee"></dd>
+          <dt class="text-slate-muted">Phone number</dt><dd class="text-right font-mono-data text-mono-data" id="reviewPhone"></dd>
+        </dl>
+      </div>
+    </section>
+
+    <section>
+      <form id="drawer-review-form" method="POST">
+        <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="reviewerNote">Reviewer Note (Optional)</label>
+        <textarea class="w-full rounded-xl border-outline-variant bg-surface text-body-md font-body-md p-4 focus:ring-primary focus:border-primary placeholder:text-slate-muted/50" id="reviewerNote" maxlength="500" name="note" placeholder="e.g., Amount matches the outstanding charge..." rows="3"></textarea>
+      </form>
+    </section>
+  </div>
+
+  <div class="p-6 border-t border-outline-variant bg-surface-container-low flex flex-col gap-3">
+    <button class="w-full py-4 rounded-xl bg-status-completed text-white font-headline-md text-headline-md shadow-lg shadow-status-completed/20 hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2" form="drawer-review-form" name="status" type="submit" value="COMPLETED">
+      <span class="material-symbols-outlined">verified</span>
+      Approve Payment
+    </button>
+    <button class="w-full py-3 rounded-xl bg-status-rejected/10 text-status-rejected border border-status-rejected/20 font-label-md text-label-md hover:bg-status-rejected hover:text-white transition-all" form="drawer-review-form" name="status" type="submit" value="REJECTED">
+      Reject
+    </button>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var reviewActionBase = <%- JSON.stringify(reviewActionBase) %>;
+    var panel = document.getElementById('reviewPanel');
+    var overlay = document.getElementById('sidePanelOverlay');
+    var form = document.getElementById('drawer-review-form');
+
+    function money(currency, amount) {
+      return currency + ' ' + Number(amount).toLocaleString();
+    }
+
+    function renderCharges(charges) {
+      var container = document.getElementById('reviewCharges');
+      container.innerHTML = '';
+      (charges || []).forEach(function (charge) {
+        var chip = document.createElement('span');
+        chip.className = 'px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-md text-[10px]';
+        chip.textContent = charge.description;
+        container.appendChild(chip);
+      });
+    }
+
+    function openReviewPanel(payment) {
+      form.action = reviewActionBase + '/' + payment.id + '/review';
+      document.getElementById('reviewStudentName').textContent = payment.studentName || 'Unclaimed record';
+      document.getElementById('reviewSchoolId').textContent = payment.schoolId || '';
+      document.getElementById('reviewAvatar').textContent = (payment.studentName || '?')
+        .split(' ')
+        .map(function (part) { return part[0]; })
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+      document.getElementById('reviewDescription').textContent = payment.description;
+      renderCharges(payment.charges);
+      document.getElementById('reviewSubmitted').textContent = new Date(payment.occurredAt).toLocaleString();
+      document.getElementById('reviewAmount').textContent = money(payment.currency, payment.amount);
+      document.getElementById('reviewerNote').value = '';
+
+      var fxSection = document.getElementById('reviewFxSection');
+      if (payment.sendCurrency && payment.fxRate) {
+        fxSection.classList.remove('hidden');
+        document.getElementById('reviewSendCurrency').textContent = payment.sendCurrency;
+        document.getElementById('reviewFxRate').textContent =
+          '1 ' + payment.currency + ' = ' + payment.fxRate.toFixed(4) + ' ' + payment.sendCurrency;
+        document.getElementById('reviewConverted').textContent = money(payment.sendCurrency, payment.convertedAmount);
+        document.getElementById('reviewFee').textContent = money(payment.sendCurrency, payment.feeAmount);
+        document.getElementById('reviewPhone').textContent = payment.phoneNumber || '—';
+      } else {
+        fxSection.classList.add('hidden');
+      }
+
+      overlay.classList.remove('hidden');
+      setTimeout(function () {
+        overlay.classList.add('opacity-100');
+        panel.classList.remove('translate-x-full');
+      }, 10);
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeReviewPanel() {
+      panel.classList.add('translate-x-full');
+      overlay.classList.remove('opacity-100');
+      setTimeout(function () {
+        overlay.classList.add('hidden');
+      }, 300);
+      document.body.style.overflow = 'auto';
+    }
+
+    // Review buttons carry their payment as a data-payment attribute (HTML-escaped JSON, safe
+    // inside a double-quoted attribute) rather than inline onclick="...JSON.stringify..." - a
+    // raw JSON.stringify() result contains double quotes, which would terminate a
+    // double-quoted onclick attribute at the first one and silently break the button.
+    document.addEventListener('click', function (e) {
+      var trigger = e.target.closest('[data-review-trigger]');
+      if (trigger) {
+        openReviewPanel(JSON.parse(trigger.getAttribute('data-payment')));
+        return;
+      }
+
+      if (e.target.closest('[data-review-close]')) {
+        closeReviewPanel();
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeReviewPanel();
+    });
+  })();
+</script>

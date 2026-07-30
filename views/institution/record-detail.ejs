@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= record.studentName %> - EduPay</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('../partials/nav', { user }) %>
+
+  <main class="flex-grow w-full max-w-container-max mx-auto px-gutter py-8">
+    <a class="inline-flex items-center gap-1 mb-4 font-body-sm text-body-sm text-slate-muted hover:text-primary transition-colors" href="/institution/records">
+      <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+      Back to financial records
+    </a>
+
+    <div class="mb-6">
+      <h1 class="font-headline-lg text-headline-lg text-primary mb-1"><%= record.studentName %></h1>
+      <p class="font-body-md text-body-md text-slate-muted">
+        School ID <%= record.schoolId %><% if (record.program) { %> &middot; <%= record.program %><% } %>
+        &middot; Outstanding balance <span class="font-mono-data text-mono-data font-semibold text-on-surface"><%= record.currency %> <%= record.outstandingBalance.toLocaleString() %></span>
+      </p>
+    </div>
+
+    <div class="hidden mb-6 px-4 py-3 rounded-lg font-body-sm text-body-sm bg-error-container text-on-error-container" id="page-alert"></div>
+    <% if (error) { %><div class="mb-6 px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm"><%= error %></div><% } %>
+    <% if (success) { %><div class="mb-6 px-4 py-3 rounded-lg bg-status-completed/10 text-status-completed font-body-sm text-body-sm"><%= success %></div><% } %>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-outline-variant bg-surface-container-low">
+          <h2 class="font-headline-md text-headline-md text-primary">Charges</h2>
+        </div>
+        <% if (record.charges.length === 0) { %>
+          <p class="p-6 font-body-md text-body-md text-slate-muted">No charges on this record yet.</p>
+        <% } else { %>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse" id="charges-table">
+              <thead>
+                <tr class="bg-surface-container-low border-b border-outline-variant">
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Description</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Amount</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Due date</th>
+                  <th class="px-6 py-3"></th>
+                  <th class="px-6 py-3"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-outline-variant">
+                <% record.charges.forEach(function (charge) { %>
+                  <tr data-charge-id="<%= charge.id %>" data-editable="<%= charge.editable %>">
+                    <td class="view-mode px-6 py-4 font-body-md text-on-surface">
+                      <%= charge.description %>
+                      <% if (!charge.editable) { %>
+                        <div class="font-body-sm text-[11px] text-slate-muted mt-0.5">Has a payment attached - reject it first to edit</div>
+                      <% } %>
+                    </td>
+                    <td class="view-mode px-6 py-4 font-mono-data text-mono-data text-on-surface"><%= charge.currency %> <%= charge.amount.toLocaleString() %></td>
+                    <td class="view-mode px-6 py-4 font-body-sm text-body-sm text-slate-muted"><%= charge.dueDate ? new Date(charge.dueDate).toLocaleDateString() : '—' %></td>
+                    <td class="view-mode px-6 py-4">
+                      <% if (charge.editable) { %>
+                        <button class="edit-btn px-3 py-1.5 rounded-lg bg-white border border-outline-variant text-primary font-label-md text-[11px] hover:bg-surface-container transition-colors" type="button">Edit</button>
+                      <% } %>
+                    </td>
+                    <td class="view-mode px-6 py-4">
+                      <% if (charge.editable) { %>
+                        <button class="delete-btn px-3 py-1.5 rounded-lg bg-status-rejected/10 text-status-rejected border border-status-rejected/20 font-label-md text-[11px] hover:bg-status-rejected hover:text-white transition-colors" type="button">Delete</button>
+                      <% } %>
+                    </td>
+
+                    <td class="edit-mode hidden px-6 py-4" colspan="2">
+                      <input class="edit-description w-full px-3 py-2 rounded-lg border border-outline-variant text-body-sm font-body-sm" type="text" value="<%= charge.description %>" />
+                    </td>
+                    <td class="edit-mode hidden px-6 py-4">
+                      <input class="edit-amount w-28 px-3 py-2 rounded-lg border border-outline-variant text-body-sm font-body-sm" min="0.01" step="0.01" type="number" value="<%= charge.amount %>" />
+                    </td>
+                    <td class="edit-mode hidden px-6 py-4">
+                      <input class="edit-dueDate px-3 py-2 rounded-lg border border-outline-variant text-body-sm font-body-sm" type="date" value="<%= charge.dueDate ? new Date(charge.dueDate).toISOString().slice(0, 10) : '' %>" />
+                    </td>
+                    <td class="edit-mode hidden px-6 py-4">
+                      <div class="flex gap-2">
+                        <button class="save-btn px-3 py-1.5 rounded-lg bg-status-completed text-white font-label-md text-[11px] hover:opacity-90 transition-opacity" type="button">Save</button>
+                        <button class="cancel-btn px-3 py-1.5 rounded-lg bg-white border border-outline-variant text-primary font-label-md text-[11px] hover:bg-surface-container transition-colors" type="button">Cancel</button>
+                      </div>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-6 h-fit">
+        <h2 class="font-headline-md text-headline-md text-primary mb-5">Add charge</h2>
+        <form action="/institution/records/<%= record.id %>/charges" class="space-y-5" method="POST">
+          <div>
+            <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="description">Description</label>
+            <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="description" minlength="1" name="description" required type="text" />
+          </div>
+          <div>
+            <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="amount">Amount (<%= record.currency %>)</label>
+            <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="amount" min="0.01" name="amount" required step="0.01" type="number" />
+          </div>
+          <div>
+            <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="dueDate">Due date</label>
+            <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="dueDate" name="dueDate" required type="date" />
+          </div>
+          <button class="w-full px-6 py-2.5 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container active:scale-95 transition-all" type="submit">Add charge</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+
+  <script>
+    (function () {
+      var table = document.getElementById('charges-table');
+      if (!table) return;
+
+      var alertEl = document.getElementById('page-alert');
+
+      function showError(message) {
+        alertEl.textContent = Array.isArray(message) ? message.join(' ') : message;
+        alertEl.className = 'mb-6 px-4 py-3 rounded-lg font-body-sm text-body-sm bg-error-container text-on-error-container';
+      }
+
+      function jsonRequest(method, url, body) {
+        return fetch(url, {
+          method: method,
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: body ? JSON.stringify(body) : undefined,
+        }).then(function (res) {
+          if (res.status === 204) return null;
+          return res.json().then(function (data) {
+            if (!res.ok) throw new Error(Array.isArray(data.message) ? data.message.join(' ') : (data.message || 'Something went wrong.'));
+            return data;
+          });
+        });
+      }
+
+      table.addEventListener('click', function (event) {
+        var row = event.target.closest('tr[data-charge-id]');
+        if (!row) return;
+        var chargeId = row.getAttribute('data-charge-id');
+
+        if (event.target.classList.contains('edit-btn')) {
+          row.querySelectorAll('.view-mode').forEach(function (el) { el.classList.add('hidden'); });
+          row.querySelectorAll('.edit-mode').forEach(function (el) { el.classList.remove('hidden'); });
+        }
+
+        if (event.target.classList.contains('cancel-btn')) {
+          row.querySelectorAll('.edit-mode').forEach(function (el) { el.classList.add('hidden'); });
+          row.querySelectorAll('.view-mode').forEach(function (el) { el.classList.remove('hidden'); });
+        }
+
+        if (event.target.classList.contains('save-btn')) {
+          var description = row.querySelector('.edit-description').value;
+          var amount = parseFloat(row.querySelector('.edit-amount').value);
+          var dueDate = row.querySelector('.edit-dueDate').value;
+
+          event.target.disabled = true;
+          jsonRequest('PATCH', '/school-financial-records/<%= record.id %>/charges/' + chargeId, {
+            description: description,
+            amount: amount,
+            dueDate: dueDate,
+          })
+            .then(function () {
+              window.location.reload();
+            })
+            .catch(function (err) {
+              event.target.disabled = false;
+              showError(err.message);
+            });
+        }
+
+        if (event.target.classList.contains('delete-btn')) {
+          if (!window.confirm('Delete this charge? This cannot be undone.')) return;
+
+          event.target.disabled = true;
+          jsonRequest('DELETE', '/school-financial-records/<%= record.id %>/charges/' + chargeId)
+            .then(function () {
+              window.location.reload();
+            })
+            .catch(function (err) {
+              event.target.disabled = false;
+              showError(err.message);
+            });
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

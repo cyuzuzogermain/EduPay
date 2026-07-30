@@ -1,0 +1,19 @@
+<%
+  var badgeStatus = String(status || '').toUpperCase();
+  var badgeLabel = (typeof label !== 'undefined' && label) ? label : badgeStatus.replace(/_/g, ' ');
+  var badgeClassMap = {
+    PENDING: 'bg-status-pending/10 text-status-pending',
+    INITIATED: 'bg-status-pending/10 text-status-pending',
+    PENDING_APPROVAL: 'bg-status-pending/10 text-status-pending',
+    PAYMENT_PENDING: 'bg-status-pending/10 text-status-pending',
+    OPEN: 'bg-status-pending/10 text-status-pending',
+    APPROVED: 'bg-status-completed/10 text-status-completed',
+    COMPLETED: 'bg-status-completed/10 text-status-completed',
+    REJECTED: 'bg-status-rejected/10 text-status-rejected',
+    OVERDUE: 'bg-status-overdue/10 text-status-overdue',
+    CHARGE: 'bg-surface-container-highest text-on-surface-variant',
+    PAYMENT: 'bg-secondary-container/30 text-on-secondary-container',
+  };
+  var badgeCls = badgeClassMap[badgeStatus] || 'bg-surface-container-highest text-on-surface-variant';
+%>
+<span class="inline-block px-2.5 py-1 rounded-full <%= badgeCls %> font-label-md text-[10px] uppercase tracking-wider whitespace-nowrap"><%= badgeLabel %></span>

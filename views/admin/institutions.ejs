@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Institutions - EduPay</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+  <%- include('../partials/nav', { user }) %>
+
+  <main class="flex-grow w-full max-w-container-max mx-auto px-gutter py-8">
+    <h1 class="font-headline-lg text-headline-lg text-primary mb-6">Institutions</h1>
+
+    <% if (error) { %><div class="mb-6 px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm"><%= error %></div><% } %>
+    <% if (success) { %><div class="mb-6 px-4 py-3 rounded-lg bg-status-completed/10 text-status-completed font-body-sm text-body-sm"><%= success %></div><% } %>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-outline-variant bg-surface-container-low">
+          <h2 class="font-headline-md text-headline-md text-primary">All institutions</h2>
+        </div>
+        <% if (institutions.length === 0) { %>
+          <p class="p-6 font-body-md text-body-md text-slate-muted">No institutions yet - create one to get started.</p>
+        <% } else { %>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-surface-container-low border-b border-outline-variant">
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Name</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Country</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Contact</th>
+                  <th class="px-6 py-3 font-label-md text-label-md text-slate-muted uppercase tracking-wider">Currency</th>
+                  <th class="px-6 py-3"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-outline-variant">
+                <% institutions.forEach(function (inst) { %>
+                  <tr class="hover:bg-surface-container-low transition-colors">
+                    <td class="px-6 py-4 font-body-md text-body-md font-semibold text-on-surface"><%= inst.name %></td>
+                    <td class="px-6 py-4 font-body-sm text-body-sm text-slate-muted"><%= inst.country %></td>
+                    <td class="px-6 py-4 font-body-sm text-body-sm text-slate-muted"><%= inst.contactEmail %></td>
+                    <td class="px-6 py-4 font-mono-data text-mono-data text-on-surface"><%= inst.preferredCurrency %></td>
+                    <td class="px-6 py-4 text-right"><a class="text-primary hover:underline font-label-md text-label-md" href="/admin/institutions/<%= inst.id %>">Manage &rarr;</a></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <%- include('../partials/pagination', { meta, baseUrl: '/admin/institutions?' }) %>
+        <% } %>
+      </div>
+
+      <div class="bg-white border border-outline-variant rounded-xl shadow-sm p-6 h-fit">
+        <h2 class="font-headline-md text-headline-md text-primary mb-5">Create institution</h2>
+        <form action="/admin/institutions" class="space-y-5" method="POST">
+          <div>
+            <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="name">Name</label>
+            <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="name" minlength="2" name="name" required type="text" />
+          </div>
+          <div>
+            <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="country">Country</label>
+            <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="country" minlength="2" name="country" required type="text" />
+          </div>
+          <div>
+            <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="contactEmail">Contact email</label>
+            <input class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="contactEmail" name="contactEmail" required type="email" />
+          </div>
+          <div>
+            <label class="block font-label-md text-label-md text-slate-muted uppercase tracking-wider mb-2" for="preferredCurrency">Preferred currency</label>
+            <select class="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-body-md text-body-md text-on-surface" id="preferredCurrency" name="preferredCurrency" required>
+              <% currencies.forEach(function (c) { %>
+                <option value="<%= c %>"><%= c %></option>
+              <% }) %>
+            </select>
+            <p class="mt-1.5 font-body-sm text-body-sm text-slate-muted">The currency this institution is owed in and receives funds in.</p>
+          </div>
+          <button class="w-full px-6 py-2.5 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container active:scale-95 transition-all" type="submit">Create institution</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

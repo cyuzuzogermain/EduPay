@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment Review Queue - EduPay</title>
+  <%- include('../partials/head') %>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col overflow-x-hidden">
+  <%- include('../partials/nav', { user }) %>
+
+  <main class="flex-grow w-full max-w-container-max mx-auto px-gutter py-8">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+      <div>
+        <h1 class="font-headline-lg text-headline-lg text-primary mb-2">Payment Review Queue</h1>
+        <p class="font-body-md text-body-md text-slate-muted">Manage and verify pending payments for your institution's students.</p>
+      </div>
+      <div class="bg-surface-container-low px-4 py-2 rounded-lg border border-outline-variant flex items-center gap-3">
+        <span class="material-symbols-outlined text-status-pending">pending_actions</span>
+        <div>
+          <p class="font-label-md text-[10px] text-slate-muted uppercase tracking-wider">Awaiting Review</p>
+          <p class="font-headline-md text-headline-md leading-none"><%= meta.total %></p>
+        </div>
+      </div>
+    </div>
+
+    <% if (error) { %><div class="mb-6 px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm"><%= error %></div><% } %>
+    <% if (success) { %><div class="mb-6 px-4 py-3 rounded-lg bg-status-completed/10 text-status-completed font-body-sm text-body-sm"><%= success %></div><% } %>
+
+    <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant overflow-hidden">
+      <% if (payments.length === 0) { %>
+        <p class="p-8 text-center font-body-md text-body-md text-slate-muted">Nothing awaiting approval right now.</p>
+      <% } else { %>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-surface-container-low">
+                <th class="px-6 py-4 font-label-md text-label-md text-slate-muted uppercase tracking-wider border-b border-outline-variant">Student</th>
+                <th class="px-6 py-4 font-label-md text-label-md text-slate-muted uppercase tracking-wider border-b border-outline-variant">Charges Covered</th>
+                <th class="px-6 py-4 font-label-md text-label-md text-slate-muted uppercase tracking-wider border-b border-outline-variant text-right">Amount Received</th>
+                <th class="px-6 py-4 font-label-md text-label-md text-slate-muted uppercase tracking-wider border-b border-outline-variant">Paid In</th>
+                <th class="px-6 py-4 font-label-md text-label-md text-slate-muted uppercase tracking-wider border-b border-outline-variant text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-outline-variant">
+              <% payments.forEach(function (payment) { %>
+                <tr class="hover:bg-surface-container-low transition-colors group">
+                  <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold text-xs">
+                        <%= (payment.studentName || '?').split(' ').map(function (p) { return p[0]; }).join('').slice(0, 2).toUpperCase() %>
+                      </div>
+                      <div>
+                        <span class="font-body-md text-body-md text-primary font-semibold"><%= payment.studentName %></span>
+                        <div class="font-mono-data text-[11px] text-slate-muted"><%= payment.schoolId %></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="flex flex-wrap gap-1">
+                      <% payment.charges.forEach(function (c) { %>
+                        <span class="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-md text-[10px]"><%= c.description %></span>
+                      <% }) %>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 text-right">
+                    <span class="font-mono-data text-mono-data text-primary font-bold"><%= payment.currency %> <%= payment.amount.toLocaleString() %></span>
+                  </td>
+                  <td class="px-6 py-4">
+                    <% if (payment.sendCurrency) { %>
+                      <span class="font-mono-data text-mono-data text-on-surface"><%= payment.sendCurrency %> <%= (payment.convertedAmount + payment.feeAmount).toLocaleString() %></span>
+                      <div class="font-body-sm text-[11px] text-slate-muted">incl. fee <%= payment.sendCurrency %> <%= payment.feeAmount.toLocaleString() %></div>
+                    <% } else { %>
+                      <span class="text-slate-muted">—</span>
+                    <% } %>
+                  </td>
+                  <td class="px-6 py-4 text-center">
+                    <button class="px-4 py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all shadow-sm" data-payment="<%= JSON.stringify(payment) %>" data-review-trigger="" type="button">Review</button>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <%- include('../partials/pagination', { meta, baseUrl: '/institution/payments?' }) %>
+      <% } %>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+
+  <%- include('../partials/payment-review-drawer', { reviewActionBase: '/institution/payments' }) %>
+</body>
+</html>
