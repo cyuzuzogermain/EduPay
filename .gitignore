@@ -31,4 +31,4 @@ coverage/
 prisma/*.db
 
 #others
-FLOW.md
+/FLOW.md
