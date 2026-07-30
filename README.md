@@ -114,7 +114,6 @@ npm run test:e2e  # end-to-end tests (requires Postgres running)
 
 ---
 
-<<<<<<< HEAD
 ## Seeded demo data
 
 ### Platform admin
@@ -241,19 +240,6 @@ environment variable (re-check step 1-2 above), migrations not having been appli
 exists to log in as).
 
 ---
-=======
-1. Log in as the seeded platform admin (`/login`) → **Institutions** → create an institution. (Use the above credentials if you are running directly from production)
-2. On that institution's page, provision an institution admin account.
-3. Log in as institution admin → **Records** create a record or import xls/csv
-4. Log out, register a new student account (`/register`). Make sure the student names and student
-   ID match the data provided by the institution in the records created.
-5. As the student: go to **KYC**, submit a document.
-6. Log out, log back in as the institution admin you created → **Students** → open the student →
-   **Approve** or **Reject** the submitted document.
-7. Log back in as the student to see the updated KYC status.
-8. If approved as a student, you can initiate a payment.
-9. Log out, log back in as an institution admin → **Payments** view pending and approve or reject
->>>>>>> 3f84b2034732fa330c0ee03be8485c374d44cffd
 
 ## Project structure
 
